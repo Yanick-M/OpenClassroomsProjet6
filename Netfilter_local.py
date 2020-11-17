@@ -14,7 +14,7 @@ de sauvegarde lors de leurs créations. Chaque machine doit avoir un répertoire
 Une fois le script terminé, il sera intéressant d'en faire un module ansible pour rendre la tâche moins contraignante.
 '''
 try:
-    from libnetfilterlocal import persistent
+    from libnetfilterlocal import persistent, creation_journaux
 except:
     import sys, os
     chemin = os.getcwd() + "/"
@@ -37,7 +37,7 @@ def main():
             persistent.main()
         elif choix == "2":
             print("\nJ'extrais les logs dans des fichiers spécifiques.\n")
-            #creation_journaux.main()    
+            creation_journaux.main()    
         elif choix == "3":
             print("\nJe transfére les logs ailleurs.\n")
             #transfert_journaux.main()
