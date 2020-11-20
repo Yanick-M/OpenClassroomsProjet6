@@ -1,0 +1,17 @@
+#!/bin/bash
+
+date=`date +%d-%m-%Y`
+jour=`date +%d`
+mois=`date +%B%Y`
+hote=`hostname`
+
+if [ $jour = "01"] ; then
+    echo "Création d'un répertoire pour le mois qui commence"
+    ssh -i id_rsa -o "StrictHostKeyChecking no" $user@$host sudo mkdir /Depot_log_netfilter/$hote/$mois/
+fi
+
+echo "Compression des journaux"
+sudo tar -zcvf "/var/log/archive_$hote-$date.tar.gz" /var/log/iptables*.log  
+
+echo "Transfert des archives"
+sudo rsync --remove-source-files -av -e ssh -i idrsa -o "StrictHostKeyChecking no" /var/log/archive_$hote_$date.tar.gz $user@$host:/Depot_log_netfilter/$hote/$mois/
