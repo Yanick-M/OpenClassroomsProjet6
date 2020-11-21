@@ -1,12 +1,7 @@
-#!/usr/bin/env python3
+#! /usr/bin/env python3
 # coding: utf-8
- 
-import os, shutil, stat
 
-# Vérifications des paramètres obligatoires
-
-HOST = "SERVER_ANSIBLE"
-USER = "aic"
+import os, shutil, stat, argparse, getpass
 
 # Déclaration des variables
 CHEMIN_SOURCE = os.getcwd() + "/"
@@ -16,8 +11,25 @@ CHEMIN_SCRIPT = "/root/"
 NOM_SCRIPT = "archivage_logs_netfilter.sh"
 CHEMIN_CLE = "/root/.ssh/"
 NOM_CLE = "id_rsa_archivage"
+NOM_CLE2 = "id_rsa_archivage.pub"
 CHEMIN_DOCUMENTS = os.path.join(os.path.dirname(__file__), 'doc/')
 NOM_DOCUMENT = "script_archivage.txt"
+
+class Error(Exception):
+    """ classe de gestion des erreurs personnalisées"""
+    pass
+class FichierNonTrouve(Error):
+    """ définition d'une erreur perso """
+    pass
+class DroitsInsuffissants(Error):
+    """ définition d'une erreur perso """
+    pass
+class RechercheVide(Error):
+    """ définition d'une erreur perso """
+    pass
+class EchecEcriture(Error):
+    """ définition d'une erreur perso """
+    pass
 
 def lecture_fichier(chemin, nom):
 
@@ -29,26 +41,24 @@ def lecture_fichier(chemin, nom):
         mon_fichier.close()
     # En cas de fichier inexistant, renvoie d'une chaîne vide
     except FileNotFoundError:
-        liste=[]
+        raise FichierNonTrouve
     # En cas de droits insuffisants, l'utilisateur est informé du problème et l'exécution du script se termine
     except IOError:
-        print("\033[31mLe script doit être lancé avec des priviléges pour réaliser cette action\033[0m")
-        os._exit(0)
+        raise DroitsInsuffissants
 
     return(liste)
 
 def recherche(liste, valeur):
     
     # Recherche d'une valeur dans chaque ligne d'une liste (ex. : le nom du script dans la tâche cronatb active)
-    # Si elle est trouvée, un "vrai" est renvoyé
-    # Sinon un "faux"
+    # Si la valeur n'est pas trouvée, une exception est levée
     print("-----vérification de la liste-----")
     resultat = False
     for line in liste:
         if line.find(valeur) >= 0:
             resultat = True
-
-    return(resultat)
+    if resultat is False:
+        raise RechercheVide
 
 def ecrire_fichier(chemin, nom, donnees):
     
@@ -61,9 +71,8 @@ def ecrire_fichier(chemin, nom, donnees):
             for line in donnees:
                 fichier.write("{}\n".format(line))
     # Si l'ouverture échoue, l'utilisateur est informé et l'exécution du script se termine
-    except IOError:
-        print("\033[31mLe fichier {} n'a pas pu être créer à l'emplacement {} !\033[0m".format(nom, chemin))
-        os._exit(0)
+    except:
+        raise EchecEcriture
 
 def mise_en_place_fichier(chemin_src, chemin_dst, nom):
     
@@ -77,17 +86,9 @@ def mise_en_place_fichier(chemin_src, chemin_dst, nom):
     # En cas d'erreur, exécution de la commande bash correspondante avec privilège
     try:
         shutil.move(emplacement_src, emplacement_dst)
-    except PermissionError:
-        print("\033[31mLe script doit être lancé avec des priviléges pour réaliser cette action\033[0m")
-        os._exit(0)
-    
-    # Modification des droits du script
-    # Essai de modification des droits du fichier dans le réperoire de destination
-    # En cas d'erreur, exécution de la commande bash correspondante avec privilèges
-    try:
         os.chmod(emplacement_dst, stat.S_IRWXU)
-    except:
-        os.system('sudo chmod 100 "{}"'.format(emplacement_dst))
+    except PermissionError:
+        raise DroitsInsuffissants
 
     print("\033[32m-----le fichier a été enregistré sur le disque-----\033[0m")
 
@@ -99,62 +100,99 @@ def creation_tache_crontab():
     # Activation de la tâche à l'aide d'une commande bash (le fichier sera ainsi lisible et modifiable par root ou le groupe crontab uniquement)
     os.system("sudo crontab \"{}{}\"".format(CHEMIN_TACHE, NOM_TACHE))
 
-def creation_script():
+def creation_script(user, host):
 
     # Lecture du fichier contenant le script d'archivage dans une liste
-    liste_archivage = lecture_fichier(CHEMIN_DOCUMENTS, NOM_DOCUMENT)
-    
+    try:
+        liste_archivage = lecture_fichier("/home/yanick/Documents/P6/NetFilterLocal/OpenClassroomsProjet6/libnetfilterlocal/doc/", NOM_DOCUMENT)
+    except FichierNonTrouve:
+        print("\033[31mVérifiez la présence du fichier {} dans le répertoire \"{}\".\033[0m".format(NOM_DOCUMENT, CHEMIN_DOCUMENTS))
+        os._exit(0)
+    except DroitsInsuffissants as exc:
+        print("\033[31mLe script doit être lancé avec des priviléges pour réaliser cette action !\033[0m")
+        os._exit(0)
+
     # Ajout des variables manquantes appelées avec le script dans la liste
-    liste_archivage.insert(2, "host={}".format(HOST))
-    liste_archivage.insert(2, "user={}".format(USER))
+    liste_archivage.insert(2, "host={}".format(host))
+    liste_archivage.insert(2, "user={}".format(user))
 
     # Création du fichier conf dans le répertoire courant
-    ecrire_fichier(CHEMIN_SOURCE, NOM_SCRIPT, liste_archivage)
-
+    try:
+        ecrire_fichier(CHEMIN_SOURCE, NOM_SCRIPT, liste_archivage)
+    except EchecEcriture as exc:
+        print("\033[31mLe fichier {} n'a pas pu être créer à l'emplacement {} !\033[0m".format(NOM_SCRIPT, CHEMIN_SOURCE))
+        os._exit(0)
+    
     # Déplacement du fichier dans le répertoire root
-    mise_en_place_fichier(CHEMIN_SOURCE, CHEMIN_SCRIPT, NOM_SCRIPT)
+    try:    
+        mise_en_place_fichier(CHEMIN_SOURCE, CHEMIN_SCRIPT, NOM_SCRIPT)
+    except DroitsInsuffissants as exc:
+        print("\033[31mLe script doit être lancé avec des priviléges pour réaliser cette action !\033[0m")
 
 def crontab():
 
     print("\n\033[34mJ'analyse les tâches planifiées...\033[0m")
     
     # Ouverture du fichier /var/spool/cron/crontabs/root
-    liste_tache = lecture_fichier(CHEMIN_TACHE, NOM_TACHE)
-        # Vide ----> Ajout et validation tâche 
-    if not liste_tache:
-        creation_tache_crontab()
-    else:
-        # Sinon ----> Recherche nom du script dans le fichier
-        resultat = recherche(liste_tache, NOM_SCRIPT)
-            # Faux ----> Ajout et validation tâche
-        if resultat is not True:
+    try:
+        liste_taches = lecture_fichier(CHEMIN_TACHE, NOM_TACHE)
+        # Vérification de la présence de l'exécution du script d'archivage dans la liste des tâches crontab
+        try:
+            recherche(liste_taches, NOM_SCRIPT)
+        # Si la recherche est infructueuse, ajout de la tâche crontab
+        except RechercheVide as exc:
             creation_tache_crontab()
-            # Vrai ----> Flag OK
+    # Si le fichier n'existe pas, ajout de la tâche crontab
+    except FichierNonTrouve as exc:
+        creation_tache_crontab()
+    # Si l'utilisateur n'a pas le droit d'accéder au fichier, il est informé et l'exécution du script est stoppé
+    except DroitsInsuffissants as exc:
+        print("\033[31mLe script doit être lancé avec des priviléges pour réaliser cette action !\033[0m")
+        os._exit(0)
 
     print("\033[32mLa tâche permettant l'archivage des logs est configurée !\033[0m")
 
-def script():
+def script(user, host):
 
     print("\n\033[34mJe cherche le script d'archivage des logs...\033[0m")
     
     # Ouverture du fichier /root/archivage_logs_netfilter.sh
-    liste_script = lecture_fichier(CHEMIN_SCRIPT, NOM_SCRIPT)
-        # Vide ----> création du script
-    if not liste_script:
-        creation_script()
+    try:
+        liste_script = lecture_fichier(CHEMIN_SCRIPT, NOM_SCRIPT)
+        # Vérification que l'utilisateur et le serveur sont les bons
+        try:
+            recherche(liste_script, user)
+            recherche(liste_script, host)
+        # Si un des deux est différent, le script est recréé
+        except RechercheVide as exc:
+            creation_script(user, host)
+    # Si le fichier n'existe pas, création du script
+    except FichierNonTrouve as exc:
+        creation_script(user, host)
+    # Si l'utilisateur n'a pas le droit d'accéder au fichier, il est informé et l'exécution du script est stoppé
+    except DroitsInsuffissants as exc:
+        print("\033[31mLe script doit être lancé avec des priviléges pour réaliser cette action\033[0m")
+        os._exit(0)
 
     print("\033[32mLe script est en place !\033[0m")
 
-def cle_ssh():
+def cle_ssh(user, host, password):
 
     print("\n\033[34mJe cherche la clé ssh permettant le transfert des archives...\033[0m")
     
-    # Ouverture du fichier /root/.ssh/id_rsa_archivage
-    liste_cle = lecture_fichier(CHEMIN_CLE, NOM_CLE)
-        # Vide ----> Création
-    if not liste_cle:
+    # Essai de lecture des fichiers /root/.ssh/id_rsa_archivage*
+    try:
+        lecture_fichier(CHEMIN_CLE, NOM_CLE)
+        lecture_fichier(CHEMIN_CLE, NOM_CLE2)
+    # Si un des fichiers n'est pas trouvé, création de la clé
+    except FichierNonTrouve:
         print("-----génération d'une clé-----")
-        os.system("sudo ssh-keygen -b 4096 -q -f \"{}{}\" -N \"\"".format(CHEMIN_CLE, NOM_CLE))
+        # Dans le cas où il manque le fichier .pub, tentative de suppression du fichier id_rsa_archivage au préalable
+        os.system("rm \"{0}{1}\" > /dev/null 2>&1 | ssh-keygen -b 4096 -q -f \"{0}{1}\" -N \"\"".format(CHEMIN_CLE, NOM_CLE))
+        os.system("sshpass -p \"{}\" ssh-copy-id -i /home/yanick/.ssh/id_rsa_test {}@{} > /dev/null 2>&1".format(password, user, host))
+    except DroitsInsuffissants as exc:
+        print("\033[31mLe script doit être lancé avec des priviléges pour réaliser cette action !\033[0m")
+        os._exit(0)
 
     print("\033[32mLa clé est en place !\033[0m")
 
@@ -162,15 +200,30 @@ def cle_ssh():
 # Archiver quotidiennement les journaux Netfilter sur un serveur central
 # L'objectif est d'ajouter une tâche crontab qui va exécuter un script bash et créer ce script
 # Le script compresse les journaux logs puis les copie en ssh sur une autre machine
-def main():
+def main(user, host, password):
 
     # Tâche crontab
     crontab()
     # Tâche script
-    script()
+    script(user, host)
     # Tâche clé ssh
-    cle_ssh()
+    cle_ssh(user, host, password)
 
 if __name__ == '__main__':
-    #main()
-    crontab()
+
+    # traitement des arguments
+    parser = argparse.ArgumentParser ()
+    parser.add_argument ( "-U", "--user", help = "indiquez un nom d'utilisateur pour la connexion SSH" )
+    parser.add_argument ( "-H", "--host", help = "Indiquez un nom de la machine à contacter pour la connexion SSH" )
+    args = parser.parse_args ()
+    if not args.user or not args.host :
+        print("Les arguments user et host n'ont pas été appelés. Ajoutez -h pour obtenir de l'aide.")
+        os._exit(0)
+    
+    # Demande sécurisée du mot de passe de l'utilisateur pour la connexion ssh
+    try: 
+        password = getpass.getpass(prompt="Quel est le mot de passe de l'utilisateur pour la connexion ssh ?") 
+    except: 
+        print("Problème détecté avec la saisie du mot de passe")
+        os._exit(0)
+    main(args.user, args.host, password)

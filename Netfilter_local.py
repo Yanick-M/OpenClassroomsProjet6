@@ -13,26 +13,30 @@ de sauvegarde lors de leurs créations. Chaque machine doit avoir un répertoire
 
 Une fois le script terminé, il sera intéressant d'en faire un module ansible pour rendre la tâche moins contraignante.
 '''
+import os, argparse, getpass
 try:
     from libnetfilterlocal import persistent, creation_journaux, transfert_journaux
 except:
-    import sys, os
+    import sys
     chemin = os.getcwd() + "/"
     sys.path.insert(0, chemin)
     from libnetfilterlocal import persistent
 
-# Besoin d'intégrer trois paramètres appelés avec le script : le nom d'hôte du serveur centrale (ou son IP) et les identifiants de
-# l'utilisateur pour la connexion ssh ????
+# traitement des arguments
+parser = argparse.ArgumentParser ()
+parser.add_argument ( "-U", "--user", help = "indiquez un nom d'utilisateur pour la connexion SSH" )
+parser.add_argument ( "-H", "--host", help = "Indiquez un nom de la machine à contacter pour la connexion SSH" )
+args = parser.parse_args ()
 
 def logo_acceuil():
     
     logo = [
-        "              __________          __   __                   ",
-        "              \______   \___ __ _/  |_|  |__   ____   ____  ",
-        "               |     ___<   |  |\   __\  |  \ /  _ \ /    \ ",
-        "               |    |    \___  | |  | |   Y  (  <_> )   |  \ ",
-        "               |____|    / ____| |__| |___|  /\____/|___|  /",
-        "                         \/                \/            \/"
+        "                                     __________          __   __                   ",
+        "                                     \______   \___ __ _/  |_|  |__   ____   ____  ",
+        "                                      |     ___<   |  |\   __\  |  \ /  _ \ /    \ ",
+        "                                      |    |    \___  | |  | |   Y  (  <_> )   |  \ ",
+        "                                      |____|    / ____| |__| |___|  /\____/|___|  /",
+        "                                                \/                \/            \/"
     ]
 
     for line in logo:
@@ -44,7 +48,7 @@ def main():
     choix = "n"
     # Boucle de choix:
     while choix != "q":
-        print("\n \033[34m1\033[0m : Rendre le pare-feu persistent,\n", "\033[34m2\033[0m : Rediriger les logs netfilter,\n", "\033[34m3\033[0m : Planifier la sauvegarde des logs \033[31m(nécessite d'être root ou sudoers)\033[0m,\n", "\033[34m4\033[0m : Déployer un script mis à jour,\n", "\033[34mQ\033[0m : Quitter,")
+        print("\n \033[34m1\033[0m : Rendre le pare-feu persistent,\n", "\033[34m2\033[0m : Rediriger les logs netfilter,\n", "\033[34m3\033[0m : Planifier la sauvegarde des logs \033[31m(nécessite d'être root ou sudoers et d'avoir appelé les identifiants de connexion)\033[0m,\n", "\033[34m4\033[0m : Déployer un script mis à jour,\n", "\033[34mQ\033[0m : Quitter,")
         choix = input("Quel est votre choix ? ")
         choix = choix.lower()
         if choix == "1":
@@ -55,7 +59,17 @@ def main():
             creation_journaux.main()    
         elif choix == "3":
             print("\nJe transfére les logs ailleurs.\n")
-            transfert_journaux.main()
+            if not args.user or not args.host :
+                print("Les arguments user et host n'ont pas été appelés. Ajoutez -h pour obtenir de l'aide.")
+                os._exit(0)
+            else:
+                # Demande sécurisée du mot de passe de l'utilisateur pour la connexion ssh
+                try: 
+                    password = getpass.getpass(prompt="Quel est le mot de passe de l'utilisateur pour la connexion ssh ?") 
+                except: 
+                    print("Problème détecté avec la saisie du mot de passe")
+                    os._exit(0)
+                transfert_journaux.main(args.user, args.host, password)
         elif choix == "4":
             print("\nJe downloade le script corrigé.\n")
             #transfert_mise_a_jour.main()
