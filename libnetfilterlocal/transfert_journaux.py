@@ -4,7 +4,7 @@
 import os, shutil, stat, argparse, getpass
 
 # Déclaration des variables
-CHEMIN_SOURCE = os.getcwd() + "/"
+#CHEMIN_SOURCE = os.getcwd() + "/"
 CHEMIN_TACHE = "/var/spool/cron/crontabs/"
 NOM_TACHE = "root"
 CHEMIN_SCRIPT = "/root/"
@@ -12,24 +12,48 @@ NOM_SCRIPT = "archivage_logs_netfilter.sh"
 CHEMIN_CLE = "/root/.ssh/"
 NOM_CLE = "id_rsa_archivage"
 NOM_CLE2 = "id_rsa_archivage.pub"
+NOM_CLE3 = "authorized_keys"
 CHEMIN_DOCUMENTS = os.path.join(os.path.dirname(__file__), 'doc/')
 NOM_DOCUMENT = "script_archivage.txt"
 
-class Error(Exception):
-    """ classe de gestion des erreurs personnalisées"""
+# Déclaration de classes pour gérer les exceptions
+class Erreur(Exception):
+    # Classe de gestion des erreurs personnalisées
     pass
-class FichierNonTrouve(Error):
-    """ définition d'une erreur perso """
+    # Si l'utilisateur n'a pas de privilège, il est informé du problème et l'exécution du script se termine 
+    def privileges(self):
+        print("\033[31mLe script doit être exécuté avec des privilèges !\033[0m")
+        os._exit(0)
+    # En cas de fichier absent et obligatoire, l'utilisateur est informé du problème et l'exécution du script se termine
+    def fichier_absent(self, chemin, nom):
+        print("\033[31mLe fichier {} dans \"{}\" est manquant ou vide !\033[0m".format(chemin, nom))
+        os._exit(0)
+    # En cas d'échec de création ou de modification de fichier, l'utilisateur est informé du problème et l'exécution du script se termine
+    def ecriture_impossible(self, chemin, nom):
+        print("\033[31mImpossible d'écrire dans le fichier {} dans \"{}\" ! Privilèges ?\033[0m".format(chemin, nom))
+        os._exit(0)
+    # En cas de problème inconnue, l'utilisateur est informé du problème et l'exécution du script se termine
+    def erreurfatale(self):
+        print("\033[31mUne erreur fatale est survenue, le script doit être débuggé :(\033[0m")
+        os._exit(0)
+
+class FichierNonTrouve(Erreur):
+    # Définition d'une exception personnalisée si un fichier n'a pas pu être lu
     pass
-class DroitsInsuffissants(Error):
-    """ définition d'une erreur perso """
+class EchecLecture(Erreur):
+    # Définition d'une exception personnalisée si un fichier n'a pas pu être créé ou modifié
     pass
-class RechercheVide(Error):
-    """ définition d'une erreur perso """
+class EchecEcriture(Erreur):
+    # Définition d'une exception personnalisée si un fichier n'a pas pu être créé ou modifié
     pass
-class EchecEcriture(Error):
-    """ définition d'une erreur perso """
+class RechercheVide(Erreur):
+    # Définition d'une exception personnalisée si une comparaison est identique
     pass
+
+def verif_privileges():
+    # Vérification que le script a été exécuté avec des privilèges
+    if os.geteuid() != 0:
+        raise EchecEcriture
 
 def lecture_fichier(chemin, nom):
 
@@ -39,12 +63,13 @@ def lecture_fichier(chemin, nom):
         mon_fichier = open(chemin + nom, "r")
         liste = [i[:-1] for i in mon_fichier]
         mon_fichier.close()
-    # En cas de fichier inexistant, renvoie d'une chaîne vide
+        print("\033[32m-----le fichier a été trouvé et lu-----\033[0m")
+    # En cas de fichier inexistant, renvoie d'une exception pour traitement
     except FileNotFoundError:
         raise FichierNonTrouve
     # En cas de droits insuffisants, l'utilisateur est informé du problème et l'exécution du script se termine
     except IOError:
-        raise DroitsInsuffissants
+        raise EchecLecture
 
     return(liste)
 
@@ -74,21 +99,16 @@ def ecrire_fichier(chemin, nom, donnees):
     except:
         raise EchecEcriture
 
-def mise_en_place_fichier(chemin_src, chemin_dst, nom):
-    
-    # Génération de l'emplacement source
-    emplacement_src = chemin_src + nom
-    
-    # Génération de l'emplacement de destination
-    emplacement_dst = chemin_dst + nom
-    
-    # Essai de copie du fichier de son emplacement actuel vers sa destination
-    # En cas d'erreur, exécution de la commande bash correspondante avec privilège
+def mise_en_place_fichier(chemin_dst, nom, droits):
+
+    # Essai de modification des droits sur le script
+    # En cas d'erreur, levée d'une exception
     try:
-        shutil.move(emplacement_src, emplacement_dst)
-        os.chmod(emplacement_dst, stat.S_IRWXU)
+        os.chmod(chemin_dst + nom, droits)
+    except FileNotFoundError:
+        raise FichierNonTrouve
     except PermissionError:
-        raise DroitsInsuffissants
+        raise EchecEcriture
 
     print("\033[32m-----le fichier a été enregistré sur le disque-----\033[0m")
 
@@ -104,30 +124,28 @@ def creation_script(user, host):
 
     # Lecture du fichier contenant le script d'archivage dans une liste
     try:
-        liste_archivage = lecture_fichier("/home/yanick/Documents/P6/NetFilterLocal/OpenClassroomsProjet6/libnetfilterlocal/doc/", NOM_DOCUMENT)
+        liste_archivage = lecture_fichier(CHEMIN_DOCUMENTS, NOM_DOCUMENT)
     except FichierNonTrouve:
         print("\033[31mVérifiez la présence du fichier {} dans le répertoire \"{}\".\033[0m".format(NOM_DOCUMENT, CHEMIN_DOCUMENTS))
         os._exit(0)
-    except DroitsInsuffissants as exc:
-        print("\033[31mLe script doit être lancé avec des priviléges pour réaliser cette action !\033[0m")
-        os._exit(0)
+    except EchecLecture as exc:
+        raise Erreur.privileges(IOError)
 
-    # Ajout des variables manquantes appelées avec le script dans la liste
+    # Ajout des variables manquantes, appelées avec le script, dans la liste
     liste_archivage.insert(2, "host={}".format(host))
     liste_archivage.insert(2, "user={}".format(user))
 
-    # Création du fichier conf dans le répertoire courant
+    # Création du script dans le répertoire de root
     try:
-        ecrire_fichier(CHEMIN_SOURCE, NOM_SCRIPT, liste_archivage)
+        ecrire_fichier(CHEMIN_SCRIPT, NOM_SCRIPT, liste_archivage)
     except EchecEcriture as exc:
-        print("\033[31mLe fichier {} n'a pas pu être créer à l'emplacement {} !\033[0m".format(NOM_SCRIPT, CHEMIN_SOURCE))
-        os._exit(0)
+        raise Erreur.ecriture_impossible(EchecEcriture, CHEMIN_SCRIPT, NOM_SCRIPT)
     
-    # Déplacement du fichier dans le répertoire root
-    try:    
-        mise_en_place_fichier(CHEMIN_SOURCE, CHEMIN_SCRIPT, NOM_SCRIPT)
-    except DroitsInsuffissants as exc:
-        print("\033[31mLe script doit être lancé avec des priviléges pour réaliser cette action !\033[0m")
+    # Modification des droits du script
+    try:  
+        mise_en_place_fichier(CHEMIN_SCRIPT, NOM_SCRIPT, stat.S_IRWXU)
+    except EchecEcriture as exc:
+        raise Erreur.privileges(IOError)
 
 def crontab():
 
@@ -146,13 +164,12 @@ def crontab():
     except FichierNonTrouve as exc:
         creation_tache_crontab()
     # Si l'utilisateur n'a pas le droit d'accéder au fichier, il est informé et l'exécution du script est stoppé
-    except DroitsInsuffissants as exc:
-        print("\033[31mLe script doit être lancé avec des priviléges pour réaliser cette action !\033[0m")
-        os._exit(0)
+    except EchecLecture as exc:
+        raise Erreur.privileges(IOError)
 
     print("\033[32mLa tâche permettant l'archivage des logs est configurée !\033[0m")
 
-def script(user, host):
+def archivage(user, host):
 
     print("\n\033[34mJe cherche le script d'archivage des logs...\033[0m")
     
@@ -170,9 +187,8 @@ def script(user, host):
     except FichierNonTrouve as exc:
         creation_script(user, host)
     # Si l'utilisateur n'a pas le droit d'accéder au fichier, il est informé et l'exécution du script est stoppé
-    except DroitsInsuffissants as exc:
-        print("\033[31mLe script doit être lancé avec des priviléges pour réaliser cette action\033[0m")
-        os._exit(0)
+    except EchecLecture as exc:
+        raise Erreur.privileges(IOError)
 
     print("\033[32mLe script est en place !\033[0m")
 
@@ -187,12 +203,43 @@ def cle_ssh(user, host, password):
     # Si un des fichiers n'est pas trouvé, création de la clé
     except FichierNonTrouve:
         print("-----génération d'une clé-----")
+        
+        # Déclaration des droits pour les fichiers concernant ssh appartenant à root
+        droits_ssh = stat.S_IREAD|stat.S_IWRITE
+
         # Dans le cas où il manque le fichier .pub, tentative de suppression du fichier id_rsa_archivage au préalable
         os.system("rm \"{0}{1}\" > /dev/null 2>&1 | ssh-keygen -b 4096 -q -f \"{0}{1}\" -N \"\"".format(CHEMIN_CLE, NOM_CLE))
-        os.system("sshpass -p \"{}\" ssh-copy-id -i /home/yanick/.ssh/id_rsa_test {}@{} > /dev/null 2>&1".format(password, user, host))
-    except DroitsInsuffissants as exc:
-        print("\033[31mLe script doit être lancé avec des priviléges pour réaliser cette action !\033[0m")
-        os._exit(0)
+        
+        # Essai de modification des droits des fichiers générés que seul le propriétaire peut lire ou modifier
+        try:
+            mise_en_place_fichier(CHEMIN_CLE, NOM_CLE, droits_ssh)
+            mise_en_place_fichier(CHEMIN_CLE, NOM_CLE2, droits_ssh)
+                # Si le fichier n'a pas été trouvé car le transfert de la clé à échouer, le script continue
+        except FichierNonTrouve as exc:
+            pass
+        except EchecEcriture as exc:
+            raise Erreur.privileges(IOError)
+
+        # Transfert de la clé vers le serveur central
+        result = os.system("sshpass -p \"{}\" ssh-copy-id -i \"{}{}\" {}@{} > /dev/null 2>&1".format(password, CHEMIN_CLE, NOM_CLE, user, host))
+        # Si la connexion échoue, l'utilisateur est informé
+        if result == 256:
+            print("\033[31mLa copie de l'ID ssh vers {} n'a pas fonctionné, problème à étudier ! Le nom du server ou de la clé est peut-être incorrecte\033[0m".format(host))
+        elif result == 1536:
+            print("\033[31mLe nom d'utilisateur du serveur {} ou son mot de passe n'est pas correct !\033[0m".format(host))
+        
+        # Essai de modification des droits sur le fichier contenant les machines autorisées via ssh
+        try:
+            mise_en_place_fichier(CHEMIN_CLE, NOM_CLE3, droits_ssh)
+        # Si le fichier n'a pas été trouvé car le transfert de la clé à échouer, le script continue
+        except FichierNonTrouve as exc:
+            pass
+        except EchecEcriture as exc:
+            raise Erreur.privileges(IOError)
+
+    # Si la fonction est exécutée sans privilèges, l'utilisateur est informée et l'exécution du script se termine
+    except EchecLecture as exc:
+        raise Erreur.privileges(IOError)
 
     print("\033[32mLa clé est en place !\033[0m")
 
@@ -205,13 +252,18 @@ def main(user, host, password):
     # Tâche crontab
     crontab()
     # Tâche script
-    script(user, host)
+    archivage(user, host)
     # Tâche clé ssh
     cle_ssh(user, host, password)
 
 if __name__ == '__main__':
 
-    # traitement des arguments
+    try:
+        verif_privileges()
+    except EchecEcriture:
+        raise Erreur.privileges(EchecEcriture)
+
+    # Traitement des arguments
     parser = argparse.ArgumentParser ()
     parser.add_argument ( "-U", "--user", help = "indiquez un nom d'utilisateur pour la connexion SSH" )
     parser.add_argument ( "-H", "--host", help = "Indiquez un nom de la machine à contacter pour la connexion SSH" )

@@ -13,7 +13,7 @@ de sauvegarde lors de leurs créations. Chaque machine doit avoir un répertoire
 
 Une fois le script terminé, il sera intéressant d'en faire un module ansible pour rendre la tâche moins contraignante.
 '''
-import os, argparse, getpass
+import os, argparse, getpass, subprocess
 try:
     from libnetfilterlocal import persistent, creation_journaux, transfert_journaux
 except:
@@ -42,13 +42,42 @@ def logo_acceuil():
     for line in logo:
         print(line)
 
+def verif_privileges():
+    # Vérification que le script a été exécuté avec des privilèges
+    if os.geteuid() != 0:
+        print("\033[31mLe script nécessite des privilèges pour fonctionner !\033[0m")
+        os._exit(0)
+
+def verif_paquet(*args):
+    # Vérification que les packages utilisés dans le script sont bien présents sur le système
+    verif = True
+    for line in args:
+        result = os.system("man {} > /dev/null 2>&1".format(line))
+        if result == 4096:
+            print("Attention ! Le package {} n'est pas installé.".format(line))
+            verif = False
+    if verif is False:
+        print("Il est nécessaire d'installer le(s) paquet(s) manquant(s) pour que le script fonctionne correctement !\033[0m")
+
 def main():
     
+    verif_privileges()
+    
+    verif_paquet("iptables", "rsyslogd", "ssh", "rsync", "tar")
+
     logo_acceuil()
+
     choix = "n"
     # Boucle de choix:
     while choix != "q":
-        print("\n \033[34m1\033[0m : Rendre le pare-feu persistent,\n", "\033[34m2\033[0m : Rediriger les logs netfilter,\n", "\033[34m3\033[0m : Planifier la sauvegarde des logs \033[31m(nécessite d'être root ou sudoers et d'avoir appelé les identifiants de connexion)\033[0m,\n", "\033[34m4\033[0m : Déployer un script mis à jour,\n", "\033[34mQ\033[0m : Quitter,")
+        print(
+            "\n \033[34m1\033[0m : Rendre le pare-feu persistent,\n",
+            "\033[34m2\033[0m : Rediriger les logs netfilter,\n",
+            "\033[34m3\033[0m : Planifier la sauvegarde des logs,\n",
+            "\033[34m4\033[0m : Déployer un script mis à jour,\n",
+            "\033[31mLes choix 1, 3 et 4 nécessitent d'avoir appelé les informations nécessaires à l'établissement de la connexion ssh,\033[0m\n",
+            "\033[34mQ\033[0m : Quitter,"
+        )
         choix = input("Quel est votre choix ? ")
         choix = choix.lower()
         if choix == "1":
