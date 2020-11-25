@@ -1,19 +1,30 @@
-import os, shutil, sys, socket, stat, argparse, getpass
+'''
+Le répertoire servant de dépôt pour les fichiers doit être créé au préalable et appartenir à l'utilisateur appelés en argument
+Le module paramiko doit être présent sur le système
+'''
+
+import os, shutil, sys, socket, stat, argparse, getpass, paramiko
+from scp import SCPClient
 
 # Définition des variables constantes
-NOM_SCRIPT = "pare-feu_" + socket.gethostname() + ".sh"
-NOM_IPTABLES = "sauvegarde_iptables_" + socket.gethostname()
+NOM_SCRIPT = "pare-feu_{}.sh".format(socket.gethostname())
+NOM_IPTABLES = "sauvegarde_iptables_{}".format(socket.gethostname())
 NOM_REGLES = "regles.txt"
 NOM_DEFAUT = "script_defaut.txt"
 CHEMIN_DESTINATION = "/etc/init.d/"
 CHEMIN_DOCUMENTS = os.path.join(os.path.dirname(__file__), 'doc/')
+CHEMIN_CLE = "/root/.ssh/"
+NOM_CLE = "id_rsa_archivage"
+NOM_CLE2 = "id_rsa_archivage.pub"
+NOM_CLE3 = "authorized_keys"
 BLOC_A = "# Commentaires"
 BLOC_B = "# Restauration iptables"
+CHEMIN_SERVER = "/Depot_netfilter/{}/".format(socket.gethostname())
 
 # Déclaration de classes pour gérer les exceptions
 class Erreur(Exception):
     # Classe de gestion des erreurs personnalisées
-    pass
+
     # Si l'utilisateur n'a pas de privilège, il est informé du problème et l'exécution du script se termine 
     def privileges(self):
         print("\033[31mLe script doit être exécuté avec des privilèges !\033[0m")
@@ -43,11 +54,34 @@ class EchecEcriture(Erreur):
 class RechercheVide(Erreur):
     # Définition d'une exception personnalisée si une comparaison est identique
     pass
+class EchecService(Erreur):
+    # Définition d'une exception personnalisée si une comparaison est identique
+    pass
 
 def verif_privileges():
     # Vérification que le script a été exécuté avec des privilèges
     if os.geteuid() != 0:
         raise EchecEcriture
+
+def suppression_fichier(chemin, nom):
+    
+    try:
+        lecture_fichier(chemin, nom)
+        try:
+            os.remove(chemin + nom)
+            print("\033[32m-----le fichier {} a été supprimé-----\033[0m".format(nom))
+        except IOError:
+            raise Erreur.privileges(EchecLecture)
+    except FichierNonTrouve as exc:
+        print("\033[32m-----le fichier {} a déjà été supprimé-----\033[0m".format(nom))
+    except EchecLecture as exc:
+        raise Erreur.privileges(EchecLecture)
+
+def annulation_modification():
+
+    # En cas d'erreur en cours d'exécution ou à la demande de l'utilisateur, suppression des deux fichiers créés
+    suppression_fichier(CHEMIN_DESTINATION, NOM_SCRIPT)
+    suppression_fichier(CHEMIN_DESTINATION, NOM_IPTABLES)
 
 def lecture_fichier(chemin, nom):
 
@@ -80,7 +114,7 @@ def recherche_regles_log(regles_configurees):
     except FichierNonTrouve as exc:
     # Si la lecture du fichier renvoie une liste vide, j'informe l'utilisateur et je quitte le script
         raise Erreur.fichier_absent(FichierNonTrouve, CHEMIN_DOCUMENTS, NOM_REGLES)
-    except EchecLecture:
+    except EchecLecture as exc:
         raise Erreur.privileges(EchecLecture)
 
     # Déclaration du nombre de fois qu'une règle a été trouvé dans Netfilter
@@ -123,6 +157,9 @@ def recherche_bloc(liste, bloc):
         # Sinon, la position est incrémentée et la boucle continue
         position += 1
     
+    if position == len(liste):
+        raise RechercheVide
+
     return(position)
 
 def ecriture_fichier(chemin, nom, donnees):
@@ -157,14 +194,21 @@ def mise_en_place_script(chemin_dst, nom):
     # Le script nécessite des droits d'exécution , puis permet la création et le démarrage d'un daemon donc une fonction spécifique par rapport au fichier IPtables
     # Mise en place du fichier dans le répertoire de destination
     droits = stat.S_IRUSR|stat.S_IXUSR
-    mise_en_place_fichier(chemin_dst, nom, droits)
-
+    try:
+        mise_en_place_fichier(chemin_dst, nom, droits)
+    except FichierNonTrouve as exc:
+        raise Erreur.erreurfatale(FichierNonTrouve)
+    except EchecEcriture as exc:
+        raise Erreur.ecriture_impossible(EchecEcriture)
     # Transformation du script en daemon
     # Pour le démarrage du daemon, j'enlève les lettres de l'extension du fichier et je rajoute service pour obtenir le nom exact du service
-    os.system('sudo update-rc.d "{}" defaults'.format(nom))
-    os.system('sudo systemctl start {}service'.format(nom[:-2]))
+    result = os.system('update-rc.d "{}" defaults > /dev/null 2>&1'.format(nom))
+    result2 = os.system('systemctl start {}service > /dev/null 2>&1'.format(nom[:-2]))
+    if result == 256 or result2 == 1280:
+        raise EchecService
 
 def sauvegarde_iptables(chemin, nom):
+    
     print("-----sauvegarde d'iptables-----")
     # Exécution de la commande pour réaliser la sauvegarde à partir des paramètres appelées avec la fonction
     os.system("/usr/sbin/iptables-save > \"{}{}\"".format(chemin, nom))
@@ -192,17 +236,27 @@ def creation_script():
         raise Erreur.privileges(EchecLecture)
 
     # Comparaison entre les règles existantes et les règles souhaitées pour obtenir les règles manquantes à définir
-    regles_a_definir = recherche_regles_log(script)
+    try:
+        regles_a_definir = recherche_regles_log(script)
+    except RechercheVide as exc:
+        raise Erreur.erreurfatale(RechercheVide)
 
     # Recherche de la position dans le script où se trouve l'emplacement des règles de commentaires à ajouter et incrémentation pour la ligne suivante
-    positionA = recherche_bloc(script, BLOC_A) + 1
+    try:
+        positionA = recherche_bloc(script, BLOC_A) + 1
+    except RechercheVide as exc:
+        raise Erreur.erreurfatale(RechercheVide)
     # Ajout des règles manquantes dans la liste représentant le script
     script_temporaire = ajout_donnees_manquantes(script, positionA, regles_a_definir)
 
     # Génération de la commande qui va permettre de restaurer la configuration IPtables sans écraser les règles du bloc précédent dans le script
     commande = "iptables-restore -n < \"" + CHEMIN_DESTINATION + NOM_IPTABLES + "\""
+    
     # Recherche de la position dans le script se trouve l'emplacement de restauration iptables et incrémentation pour la ligne suivante
-    positionB = recherche_bloc(script_temporaire, BLOC_B) + 1
+    try:    
+        positionB = recherche_bloc(script_temporaire, BLOC_B) + 1
+    except RechercheVide as exc:
+        raise Erreur.erreurfatale(RechercheVide)
     # Ajout de la commande de restauration dans la liste représentant le script
     script_definitif = ajout_donnees_manquantes(script_temporaire, positionB, commande)
 
@@ -212,27 +266,137 @@ def creation_script():
     except EchecEcriture as exc:
         raise Erreur.ecriture_impossible(EchecEcriture,CHEMIN_DESTINATION, NOM_SCRIPT)
 
-def upload_fichier():
-    pass
+def cle_ssh(user, host, password):
+    
+    print("-----génération d'une clé-----")
+    
+    # Déclaration des droits pour les fichiers concernant ssh appartenant à root
+    droits_ssh = stat.S_IREAD|stat.S_IWRITE
 
-def download_fichier():
-    pass
+    # Dans le cas où il manque le fichier .pub, tentative de suppression du fichier id_rsa_archivage au préalable
+    os.system("rm \"{0}{1}\" > /dev/null 2>&1 | ssh-keygen -b 4096 -m PEM -f \"{0}{1}\" -N \"\"".format(CHEMIN_CLE, NOM_CLE))
+    
+    # Essai de modification des droits des fichiers générés que seul le propriétaire peut lire ou modifier
+    try:
+        mise_en_place_fichier(CHEMIN_CLE, NOM_CLE, droits_ssh)
+        mise_en_place_fichier(CHEMIN_CLE, NOM_CLE2, droits_ssh)
+            # Si le fichier n'a pas été trouvé car le transfert de la clé à échouer, le script continue
+    except FichierNonTrouve as exc:
+        pass
+    except EchecEcriture as exc:
+        raise Erreur.privileges(IOError)
 
-def iptables():
+    # Transfert de la clé vers le serveur central
+    result = os.system("sshpass -p \"{}\" ssh-copy-id -i \"{}{}\" {}@{} > /dev/null 2>&1".format(password, CHEMIN_CLE, NOM_CLE, user, host))
+    # Si la connexion échoue, l'utilisateur est informé
+    if result == 256:
+        print("\033[31mLa copie de l'ID ssh vers {} n'a pas fonctionné, problème à étudier ! Le nom du server ou de la clé est peut-être incorrecte\033[0m".format(host))
+    elif result == 1536:
+        print("\033[31mLe nom d'utilisateur du serveur {} ou son mot de passe n'est pas correct !\033[0m".format(host))
+    
+    # Essai de modification des droits sur le fichier contenant les machines autorisées via ssh
+    try:
+        mise_en_place_fichier(CHEMIN_CLE, NOM_CLE3, droits_ssh)
+    # Si le fichier n'a pas été trouvé car le transfert de la clé à échouer, le script continue
+    except FichierNonTrouve as exc:
+        pass
+    except EchecEcriture as exc:
+        raise Erreur.privileges(IOError)
+
+    print("\033[32mLa clé est en place !\033[0m")
+
+def verification_ssh(user, host, password):
+    
+    print("-----recherche d'une clé-----")
+    # Essai de lecture des fichiers /root/.ssh/id_rsa_archivage*
+    try:
+        lecture_fichier(CHEMIN_CLE, NOM_CLE)
+        lecture_fichier(CHEMIN_CLE, NOM_CLE2)
+    # Si un des fichiers n'est pas trouvé, création de la clé
+    except FichierNonTrouve as exc:
+        cle_ssh(user, host, password)
+    # Si la fonction est exécutée sans privilèges, l'utilisateur est informée et l'exécution du script se termine
+    except EchecLecture as exc:
+        raise Erreur.privileges(IOError)
+
+    ssh = paramiko.SSHClient()
+    ssh.load_system_host_keys()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    key = paramiko.RSAKey.from_private_key_file("{}{}".format(CHEMIN_CLE, NOM_CLE))
+    ssh.connect(host, username = user, pkey = key)
+    ssh.exec_command('mkdir -p {}'.format(CHEMIN_SERVER))
+    ssh.close()
+
+def upload_fichier(user, host, password, chemin, nom):
+    
+    verification_ssh(user, host, password)
+    print("-----transfert du fichier {}-----".format(nom))
+    ssh = paramiko.SSHClient()
+    ssh.load_system_host_keys()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    key = paramiko.RSAKey.from_private_key_file("{}{}".format(CHEMIN_CLE, NOM_CLE))
+    ssh.connect(host, username = user, pkey = key)
+
+    try:
+        with SCPClient(ssh.get_transport()) as scp:
+            scp.put('{}{}'.format(chemin, nom), '{}{}'.format(CHEMIN_SERVER, nom))
+    except:
+        print("-----echec du transfert-----")
+
+def download_fichier(user, host, password, chemin, nom):
+    
+    verification_ssh(user, host, password)
+    print("-----téléchargement du fichier {}-----".format(nom))
+    ssh = paramiko.SSHClient()
+    ssh.load_system_host_keys()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    key = paramiko.RSAKey.from_private_key_file("{}{}".format(CHEMIN_CLE, NOM_CLE))
+    ssh.connect(host, username = user, pkey = key)
+
+    try:
+        with SCPClient(ssh.get_transport()) as scp:
+            scp.get('{}{}'.format(CHEMIN_SERVER, nom), '{}'.format(chemin))
+    except:
+        print("-----echec du téléchargement-----")
+
+def iptables(user, host, password):
+    
+    print("\n\033[36mJe cherche une sauvegarde d'IPtables...\033[0m")
 
     # Essai de lecture du ficher contenant la sauvegarde dans le répertoire init.d/
     try:
         regles_iptables = lecture_fichier(CHEMIN_DESTINATION, NOM_IPTABLES)
+        print("\n\033[32mLes règles IPtables sont sauvegardées !\033[0m\n")
         return(regles_iptables)
     # S'il n'existe pas, lancement de la sauvegarde des règles
-    except FichierNonTrouve:
-        sauvegarde_iptables(CHEMIN_DESTINATION, NOM_IPTABLES)
+    except FichierNonTrouve as exc:
+        download_fichier(user, host, password, CHEMIN_DESTINATION, NOM_IPTABLES)
+        try:
+            regles_iptables = lecture_fichier(CHEMIN_DESTINATION, NOM_IPTABLES)
+            print("\n\033[32mLes règles IPtables sont sauvegardées !\033[0m\n")
+            return(regles_iptables)
+        # S'il n'existe pas, lancement de la sauvegarde des règles
+        except FichierNonTrouve as exc:
+            sauvegarde_iptables(CHEMIN_DESTINATION, NOM_IPTABLES)
+            upload_fichier(user, host, password, CHEMIN_DESTINATION, NOM_IPTABLES)
+            # Nouvelle tentative de lecture du fichier
+            try:    
+                regles_iptables = lecture_fichier(CHEMIN_DESTINATION, NOM_IPTABLES)
+                print("\n\033[32mLes règles IPtables sont sauvegardées !\033[0m\n")
+                return(regles_iptables)
+            # S'il n'existe toujours pas, levée d'une erreur fatale
+            except FichierNonTrouve as exc:
+                raise Erreur.erreurfatale(FichierNonTrouve)
+            # S'il n'est pas accessible, l'utilisateur est informé et l'exécution du script se termine 
+            except EchecLecture as exc :
+                raise Erreur.privileges(EchecLecture)
     # S'il n'est pas accessible, l'utilisateur est informé et l'exécution du script se termine 
-    except EchecLecture:
+    except EchecLecture as exc:
         raise Erreur.privileges(EchecLecture)
 
+def daemon(user, host, password):
 
-def daemon():
+    print("\n\033[36mJe cherche le script qui crée le daemon...\033[0m")
 
     # Essai de lecture du script qui génére le daemon dans init.d/
     try:
@@ -242,54 +406,118 @@ def daemon():
             regles = regles_script + regles_iptables   
             try:
                 resultat = recherche_regles_log(regles)
-                position = recherche_bloc(regles_script, BLOC_B) - 1
+                try:
+                    position = recherche_bloc(regles_script, BLOC_B) - 1
+                except RechercheVide as exc:
+                    raise Erreur.erreurfatale(RechercheVide)
                 script_definitif = ajout_donnees_manquantes(regles_script, position, resultat)
-                ecriture_fichier(CHEMIN_DESTINATION, NOM_SCRIPT, script_definitif)
-                mise_en_place_script(CHEMIN_DESTINATION, NOM_SCRIPT)
-                # upload_fichier
-            except RechercheVide:
+                try:
+                    ecriture_fichier(CHEMIN_DESTINATION, NOM_SCRIPT, script_definitif)
+                    upload_fichier(user, host, password, CHEMIN_DESTINATION, NOM_SCRIPT)
+                except EchecEcriture as exc:
+                    raise Erreur.ecriture_impossible(EchecEcriture,CHEMIN_DESTINATION, NOM_SCRIPT)
+                try:
+                    mise_en_place_script(CHEMIN_DESTINATION, NOM_SCRIPT)
+                except EchecService as exc:
+                    print("Echec de démarrage du daemon")
+            except RechercheVide as exc:
                 pass
         except FichierNonTrouve as exc:
             raise Erreur.erreurfatale(FichierNonTrouve)
         except EchecLecture as exc:
             raise Erreur.privileges(EchecLecture)
     except FichierNonTrouve as exc:
-        creation_script()
-        mise_en_place_script(CHEMIN_DESTINATION, NOM_SCRIPT)
-        # upload_fichier
+        download_fichier(user, host, password, CHEMIN_DESTINATION, NOM_SCRIPT)
+        try:
+            regles_script = lecture_fichier(CHEMIN_DESTINATION, NOM_SCRIPT)
+            try:
+                regles_iptables = lecture_fichier(CHEMIN_DESTINATION, NOM_IPTABLES)
+                regles = regles_script + regles_iptables   
+                try:
+                    resultat = recherche_regles_log(regles)
+                    try:
+                        position = recherche_bloc(regles_script, BLOC_B) - 1
+                    except RechercheVide as exc:
+                        raise Erreur.erreurfatale(RechercheVide)
+                    script_definitif = ajout_donnees_manquantes(regles_script, position, resultat)
+                    try:
+                        ecriture_fichier(CHEMIN_DESTINATION, NOM_SCRIPT, script_definitif)
+                        upload_fichier(user, host, password, CHEMIN_DESTINATION, NOM_SCRIPT)
+                    except EchecEcriture as exc:
+                        raise Erreur.ecriture_impossible(EchecEcriture,CHEMIN_DESTINATION, NOM_SCRIPT)
+                    try:
+                        mise_en_place_script(CHEMIN_DESTINATION, NOM_SCRIPT)
+                    except EchecService as exc:
+                        print("Echec de démarrage du daemon")
+                except RechercheVide as exc:
+                    pass
+            except FichierNonTrouve as exc:
+                raise Erreur.erreurfatale(FichierNonTrouve)
+            except EchecLecture as exc:
+                raise Erreur.privileges(EchecLecture)
+        except FichierNonTrouve as exc:
+            creation_script()
+            upload_fichier(user, host, password, CHEMIN_DESTINATION, NOM_SCRIPT)
+            try:
+                mise_en_place_script(CHEMIN_DESTINATION, NOM_SCRIPT)
+            except EchecService as exc:
+                print("Echec de démarrage du daemon")
     except EchecLecture as exc:
         raise Erreur.privileges(EchecLecture)
 
-def main():
+    print("\n\033[32mIPtables a son propre daemon !\033[0m\n")
+
+def main(user, host, password):
     # Rendre le pare-feu persistent et ajouter des commentaires dans les logs :
     # L'objectif de ce script est de s'assurer que Netfilter affiche les commentaires définis par les règles présentes dans le fichier
     # "regles" du sous-dossier "doc"
     
     # Lancement de la tâche de sauvegarde des règles du pare-feu
-    iptables()
+    iptables(user, host, password)
     # Lancement de la tâche de génération du script permettant la mise en place du daemon
-    daemon()
+    daemon(user, host, password)
 
 if __name__ == '__main__':
     
+    # Vérification si le script est exécutée avec des privilèges
     try:
         verif_privileges()
     except EchecEcriture:
         raise Erreur.privileges(EchecEcriture)
-
-    # # Traitement des arguments
-    # parser = argparse.ArgumentParser ()
-    # parser.add_argument ( "-U", "--user", help = "indiquez un nom d'utilisateur pour la connexion SSH" )
-    # parser.add_argument ( "-H", "--host", help = "Indiquez un nom de la machine à contacter pour la connexion SSH" )
-    # args = parser.parse_args ()
-    # if not args.user or not args.host :
-    #     print("Les arguments user et host n'ont pas été appelés. Ajoutez -h pour obtenir de l'aide.")
-    #     os._exit(0)
     
-    # # Demande sécurisée du mot de passe de l'utilisateur pour la connexion ssh
-    # try: 
-    #     password = getpass.getpass(prompt="Quel est le mot de passe de l'utilisateur pour la connexion ssh ?") 
-    # except: 
-    #     print("Problème détecté avec la saisie du mot de passe")
-    #     os._exit(0)
-    # main(args.user, args.host, password)
+    choix = "n"
+    # Boucle de choix:
+    while choix != "q":
+        print(
+            "\n \033[36m1\033[0m : Rendre le pare-feu persistent,\n",
+            "\033[36m2\033[0m : Annuler les modifications,\n",
+            "\033[36mQ\033[0m : Quitter,"
+        )   
+        choix = input("Quel est votre choix ? ")
+        choix = choix.lower()
+        if choix == "1":
+            print("\nJe rends le pare-feu persistent.\n")
+            # Traitement des arguments
+            parser = argparse.ArgumentParser ()
+            parser.add_argument ( "-U", "--user", help = "indiquez un nom d'utilisateur pour la connexion SSH" )
+            parser.add_argument ( "-H", "--host", help = "Indiquez un nom de la machine à contacter pour la connexion SSH" )
+            args = parser.parse_args ()
+            if not args.user or not args.host :
+                print("Les arguments user et host n'ont pas été appelés. Ajoutez -h pour obtenir de l'aide.")
+                os._exit(0)
+            # Demande sécurisée du mot de passe de l'utilisateur pour la connexion ssh
+            try: 
+                password = getpass.getpass(prompt="Quel est le mot de passe de l'utilisateur pour la connexion ssh ?") 
+            except: 
+                print("Problème détecté avec la saisie du mot de passe")
+                os._exit(0)
+            main(args.user, args.host, password)
+            main()
+        elif choix == "2":
+            print("\nJ'annule les modifications.\n")
+            annulation_modification()
+        elif choix == "q":
+            print("\nJe quitte as soon as possible.\n")
+        else:
+            print("\nJe n'ai pas compris !!!\n")
+    

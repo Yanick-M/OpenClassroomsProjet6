@@ -50,6 +50,21 @@ def verif_privileges():
     if os.geteuid() != 0:
         raise EchecEcriture
 
+def annulation_modification():
+
+    # En cas d'erreur en cours d'exécution ou à la demande de l'utilisateur, suppression du fichier créé
+    try:
+        lecture_fichier(CHEMIN_DESTINATION, NOM_LOG)
+        try:
+            os.remove(CHEMIN_DESTINATION + NOM_LOG)
+            print("\033[32m-----le fichier a été supprimé-----\033[0m")
+        except IOError:
+            raise Erreur.privileges(EchecLecture)
+    except FichierNonTrouve as exc:
+        print("\033[32m-----le fichier a déjà été supprimé-----\033[0m")
+    except EchecLecture as exc:
+        raise Erreur.privileges(EchecLecture)
+
 def lecture_fichier(chemin, nom):
 
     print("-----lecture du fichier {} dans {}-----".format(nom, chemin))
@@ -156,7 +171,7 @@ def creation_fichier_conf(liste_conf):
 
     # L'ajout du fichier 10-iptables.conf nécessite le redémarrage du service pour être pris en compte
     print("\n\033[34mJe redémarre le service rsyslog...\033[0m")
-    os.system ('sudo service rsyslog restart')
+    os.system ('service rsyslog restart')
 
 def main():
     
@@ -164,22 +179,22 @@ def main():
     # L'objectif de ce module est de s'assurer qu'un fichier conf existe dans le répertoire rsyslog.d et qu'il contient
     # des règles correspondantes aux préfixes ajoutés par Netfilter
     
-    print("\n\033[34mJe cherche le fichier de config rsyslog...\033[0m")
+    print("\n\033[36mJe cherche le fichier de config rsyslog...\033[0m")
     # Essai de lecture du fichier 10-iptables.conf
     try :
         liste_conf = lecture_fichier(CHEMIN_DESTINATION, NOM_LOG)
-        print("\n\033[34mJe lance la vérification de la présence des règles de commentaires...\033[0m")
+        print("\n\033[36mJe lance la vérification de la présence des règles de commentaires...\033[0m")
         # Si il existe, comparaison des règles présentes avec les règles à appliquer
         try:
             recherche_regles_conf(liste_conf)
-            print("\n\033[34mJe lance la création du fichier...\033[0m")
+            print("\n\033[36mJe lance la création du fichier...\033[0m")
             creation_fichier_conf(liste_conf)
         # Si les règles sont différentes, recréation du fichier 10-iptables.conf
         except RechercheVide:
             print("\033[32m-----les informations sont identiques-----\033[0m")
     # Si il n'exite pas, création du fichier 10-iptables.conf à partir d'une liste vide
     except FichierNonTrouve:
-        print("\n\033[34mJe lance la création du fichier...\033[0m")
+        print("\n\033[36mJe lance la création du fichier...\033[0m")
         liste_conf = []
         creation_fichier_conf(liste_conf)
     except EchecLecture as esc:
@@ -189,9 +204,29 @@ def main():
 
 if __name__ == '__main__':
     
+    # Vérification si le script est exécutée avec des privilèges
     try:
         verif_privileges()
     except EchecEcriture:
         raise Erreur.privileges(EchecEcriture)
     
-    main()
+    choix = "n"
+    # Boucle de choix:
+    while choix != "q":
+        print(
+            "\n \033[36m1\033[0m : Rendre le pare-feu persistent,\n",
+            "\033[36m2\033[0m : Annuler les modifications,\n",
+            "\033[36mQ\033[0m : Quitter,"
+        )   
+        choix = input("Quel est votre choix ? ")
+        choix = choix.lower()
+        if choix == "1":
+            print("\nJe rends le pare-feu persistent.\n")
+            main()
+        elif choix == "2":
+            print("\nJ'annule les modifications.\n")
+            annulation_modification()
+        elif choix == "q":
+            print("\nJe quitte as soon as possible.\n")
+        else:
+            print("\nJe n'ai pas compris !!!\n")

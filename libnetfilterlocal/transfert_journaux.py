@@ -4,7 +4,6 @@
 import os, shutil, stat, argparse, getpass
 
 # Déclaration des variables
-#CHEMIN_SOURCE = os.getcwd() + "/"
 CHEMIN_TACHE = "/var/spool/cron/crontabs/"
 NOM_TACHE = "root"
 CHEMIN_SCRIPT = "/root/"
@@ -54,6 +53,29 @@ def verif_privileges():
     # Vérification que le script a été exécuté avec des privilèges
     if os.geteuid() != 0:
         raise EchecEcriture
+
+def suppression_fichier(chemin, nom):
+    
+    try:
+        lecture_fichier(chemin, nom)
+        try:
+            os.remove(chemin + nom)
+            print("\033[32m-----le fichier {} a été supprimé-----\033[0m".format(nom))
+        except IOError:
+            raise Erreur.privileges(EchecLecture)
+    except FichierNonTrouve as exc:
+        print("\033[32m-----le fichier {} a déjà été supprimé-----\033[0m".format(nom))
+    except EchecLecture as exc:
+        raise Erreur.privileges(EchecLecture)
+
+def annulation_modification():
+
+    # En cas d'erreur en cours d'exécution ou à la demande de l'utilisateur, suppression des trois fichiers créés et de la tâche crontab
+    suppression_fichier(CHEMIN_SCRIPT, NOM_SCRIPT)
+    suppression_fichier(CHEMIN_CLE, NOM_CLE)
+    suppression_fichier(CHEMIN_CLE, NOM_CLE2)
+    os.system("sed -i\".bak\" '/{}/d' \"{}{}\"".format(NOM_SCRIPT, CHEMIN_TACHE, NOM_TACHE))
+    print("\033[32m-----la tâche d'exécution du script est déplanifiée-----\033[0m")
 
 def lecture_fichier(chemin, nom):
 
@@ -116,9 +138,9 @@ def creation_tache_crontab():
     
     print("-----planification d'une tâche-----")
     # Ajout de la tâche à l'aide d'une commande bash dans le fichier root du répertoire crontabs
-    os.system("echo '0 1 * * *  \"{}./{}\" > /dev/null 2>&1' | sudo tee -a \"{}{}\" > /dev/null".format(CHEMIN_SCRIPT, NOM_SCRIPT, CHEMIN_TACHE, NOM_TACHE))
+    os.system("echo '0 1 * * *  \"{}./{}\"' >> \"{}{}\"".format(CHEMIN_SCRIPT, NOM_SCRIPT, CHEMIN_TACHE, NOM_TACHE))
     # Activation de la tâche à l'aide d'une commande bash (le fichier sera ainsi lisible et modifiable par root ou le groupe crontab uniquement)
-    os.system("sudo crontab \"{}{}\"".format(CHEMIN_TACHE, NOM_TACHE))
+    os.system("crontab \"{}{}\"".format(CHEMIN_TACHE, NOM_TACHE))
 
 def creation_script(user, host):
 
@@ -149,7 +171,7 @@ def creation_script(user, host):
 
 def crontab():
 
-    print("\n\033[34mJ'analyse les tâches planifiées...\033[0m")
+    print("\n\033[36mJ'analyse les tâches planifiées...\033[0m")
     
     # Ouverture du fichier /var/spool/cron/crontabs/root
     try:
@@ -167,11 +189,11 @@ def crontab():
     except EchecLecture as exc:
         raise Erreur.privileges(IOError)
 
-    print("\033[32mLa tâche permettant l'archivage des logs est configurée !\033[0m")
+    print("\n\033[32mLa tâche permettant l'archivage des logs est configurée !\033[0m\n")
 
 def archivage(user, host):
 
-    print("\n\033[34mJe cherche le script d'archivage des logs...\033[0m")
+    print("\n\033[36mJe cherche le script d'archivage des logs...\033[0m")
     
     # Ouverture du fichier /root/archivage_logs_netfilter.sh
     try:
@@ -190,11 +212,11 @@ def archivage(user, host):
     except EchecLecture as exc:
         raise Erreur.privileges(IOError)
 
-    print("\033[32mLe script est en place !\033[0m")
+    print("\n\033[32mLe script est en place !\033[0m\n")
 
 def cle_ssh(user, host, password):
 
-    print("\n\033[34mJe cherche la clé ssh permettant le transfert des archives...\033[0m")
+    print("\n\033[36mJe cherche la clé ssh permettant le transfert des archives...\033[0m")
     
     # Essai de lecture des fichiers /root/.ssh/id_rsa_archivage*
     try:
@@ -208,7 +230,7 @@ def cle_ssh(user, host, password):
         droits_ssh = stat.S_IREAD|stat.S_IWRITE
 
         # Dans le cas où il manque le fichier .pub, tentative de suppression du fichier id_rsa_archivage au préalable
-        os.system("rm \"{0}{1}\" > /dev/null 2>&1 | ssh-keygen -b 4096 -q -f \"{0}{1}\" -N \"\"".format(CHEMIN_CLE, NOM_CLE))
+        os.system("rm \"{0}{1}\" > /dev/null 2>&1 | ssh-keygen -b 4096 -p -m PEM -f \"{0}{1}\" -N \"\"".format(CHEMIN_CLE, NOM_CLE))
         
         # Essai de modification des droits des fichiers générés que seul le propriétaire peut lire ou modifier
         try:
@@ -241,7 +263,7 @@ def cle_ssh(user, host, password):
     except EchecLecture as exc:
         raise Erreur.privileges(IOError)
 
-    print("\033[32mLa clé est en place !\033[0m")
+    print("\n\033[32mLa clé est en place !\033[0m\n")
 
 
 # Archiver quotidiennement les journaux Netfilter sur un serveur central
@@ -258,24 +280,44 @@ def main(user, host, password):
 
 if __name__ == '__main__':
 
+    # Vérification si le script est exécutée avec des privilèges
     try:
         verif_privileges()
     except EchecEcriture:
         raise Erreur.privileges(EchecEcriture)
 
-    # Traitement des arguments
-    parser = argparse.ArgumentParser ()
-    parser.add_argument ( "-U", "--user", help = "indiquez un nom d'utilisateur pour la connexion SSH" )
-    parser.add_argument ( "-H", "--host", help = "Indiquez un nom de la machine à contacter pour la connexion SSH" )
-    args = parser.parse_args ()
-    if not args.user or not args.host :
-        print("Les arguments user et host n'ont pas été appelés. Ajoutez -h pour obtenir de l'aide.")
-        os._exit(0)
+    choix = "n"
+    # Boucle de choix:
+    while choix != "q":
+        print(
+            "\n \033[36m1\033[0m : Planifier l'archivage des logs,,\n",
+            "\033[36m2\033[0m : Annuler les modifications,\n",
+            "\033[36mQ\033[0m : Quitter,"
+        )   
+        choix = input("Quel est votre choix ? ")
+        choix = choix.lower()
+        if choix == "1":
+            print("\nJ'archive les logs ailleurs.\n")
+            # Traitement des arguments
+            parser = argparse.ArgumentParser ()
+            parser.add_argument ( "-U", "--user", help = "indiquez un nom d'utilisateur pour la connexion SSH" )
+            parser.add_argument ( "-H", "--host", help = "Indiquez un nom de la machine à contacter pour la connexion SSH" )
+            args = parser.parse_args ()
+            if not args.user or not args.host :
+                print("Les arguments user et host n'ont pas été appelés. Ajoutez -h pour obtenir de l'aide.")
+                os._exit(0)
+            # Demande sécurisée du mot de passe de l'utilisateur pour la connexion ssh
+            try: 
+                password = getpass.getpass(prompt="Quel est le mot de passe de l'utilisateur pour la connexion ssh ?") 
+            except: 
+                print("Problème détecté avec la saisie du mot de passe")
+                os._exit(0)
+            main(args.user, args.host, password)
+        elif choix == "2":
+            print("\nJ'annule les modifications.\n")
+            annulation_modification()
+        elif choix == "q":
+            print("\nJe quitte as soon as possible.\n")
+        else:
+            print("\nJe n'ai pas compris !!!\n")
     
-    # Demande sécurisée du mot de passe de l'utilisateur pour la connexion ssh
-    try: 
-        password = getpass.getpass(prompt="Quel est le mot de passe de l'utilisateur pour la connexion ssh ?") 
-    except: 
-        print("Problème détecté avec la saisie du mot de passe")
-        os._exit(0)
-    main(args.user, args.host, password)
