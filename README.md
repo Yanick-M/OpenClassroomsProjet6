@@ -34,10 +34,10 @@ Le premier objectif de ce module est de s’assurer qu’un fichier conf pour rs
       * Vérifier si le fichier existe,
       * Vérifier si les règles à définir sont déjà configurées,
       * Créer le fichier ou le mettre à jour le cas échéant.
->Le fichier conf est stocké dans le répertoire "/etc/rsyslog.d/".
->Il se nomme "10-iptables.conf".
->Les logs du pare-feu seront stocké dans le répertoire "/var/log/netfilter".
->Chaque règle de logs aura son propre fichier dont le nom est le préfixe défini.
+>Le fichier conf est stocké dans le répertoire "/etc/rsyslog.d/".  
+>Il se nomme "10-iptables.conf".  
+>Les logs du pare-feu seront stocké dans le répertoire "/var/log/netfilter/".  
+>Chaque règle de logs aura son propre fichier dont le nom est le préfixe défini.  
 >Le service "rsyslog" est redémarré en cas de création ou de modification du fichier conf.  
 >Le fichier contenant la liste des règles à définir se trouve dans "doc/regles.txt".
 2. Configurer logrotate  
@@ -53,8 +53,8 @@ Le premier objectif de ce module est de s'assurer que l'exécution du script est
       * Vérifier si le fichier crontab de root existe,  
       * Vérifier si le nom du script d'archivage est présent dans le fichier,  
       * Créer le fichier ou la tâche le cas échéant.
->Le fichier est stocké dans le répertoire "/var/spool/cron/crontabs/".
->Le fichier se nomme "root".
+>Le fichier est stocké dans le répertoire "/var/spool/cron/crontabs/".  
+>Le fichier se nomme "root".  
 >La tâche exécute le fichier "archivage_logs_netfilter.sh".
 2. Générer le script d'archivage  
 Le second objectif est de s'assurer que le script d'archivage est présent :
