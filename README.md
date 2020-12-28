@@ -40,7 +40,7 @@ Le premier objectif de ce module est de s’assurer qu’un fichier conf pour rs
 >Chaque règle de logs aura son propre fichier dont le nom est le préfixe défini.
 >Le service "rsyslog" est redémarré en cas de création ou de modification du fichier conf.  
 >Le fichier contenant la liste des règles à définir se trouve dans "doc/regles.txt".
-1. Configurer logrotate  
+2. Configurer logrotate  
 Le second objectif du module est de s’assurer qu’un fichier conf pour logrotate existe pour les logs de Netfilter :  
       * Vérifier si le fichier existe,  
       * Créer le fichier à partir d'un template le cas échéant.
@@ -68,9 +68,9 @@ Le second objectif est de s'assurer que le script d'archivage est présent :
 >Le script déplace l'archive vers la machine dédiée dans un réperoire propre et un sous-répertoire composé du mois et de l'année en cours (exemple : "décembre2020/").  
 >Le fichier contenant le template se trouve dans "doc/script_archivage.txt".
    ### - La communication avec la machine dédiée au stockage des archives  
-Les modules "persistent" et "transfert_journaux" utilisent le protocole SSH pour communiquer avec la machine dédiée à l'archivage des logs et des fichiers nécessaires au démon. Il est donc nécessaire de s'assurer que les clés id sont présentes :  
-      * Vérifier si les fichiers sont présents,  
-      * Générer les fichiers, transférer la clé publique et définir la machine dédiée comme hôte connu le cas échéant.
+   Les modules "persistent" et "transfert_journaux" utilisent le protocole SSH pour communiquer avec la machine dédiée à l'archivage des logs et des fichiers nécessaires au démon. Il est donc nécessaire de s'assurer que les clés id sont présentes :
+   * Vérifier si les fichiers sont présents,  
+   * Générer les fichiers, transférer la clé publique et définir la machine dédiée comme hôte connu le cas échéant.
 >Les clés utilisent un chiffrement RSA de 4096 bits.  
 >Elles sont stockés dans le répertoire "/root/.ssh/".  
 >Elles se nomment "id_rsa_archivage" et "id_rsa_archivage.pub".  
