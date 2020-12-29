@@ -108,6 +108,7 @@ Le but de cet outil étant d'archiver le trafic spécifique d'une machine en fon
 Il est également possible de modifier le [template](https://github.com/Yanick-M/OpenClassroomsProjet6/blob/main/libnetfilterlocal/doc/script_defaut.txt) du démon mais il ne faut pas enlever ou modifier les lignes "# Commentaires" et "# Restauration iptables".  
 Le [template]() de rotation des logs peut aussi être affiner. Par contre, l'archivage se fait uniquement sur l'ensemble des fichiers "iptables*.1" dans le répertoire "/var/log/netfilter/".
 3. ***L'outil:***  
+
 Affichage de l'aide :  
 ```  
 ./Netfilter_local.py -h  
