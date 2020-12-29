@@ -1,5 +1,3 @@
-![alt text](https://whiterivernow.com/wp-content/uploads/2018/12/Under-Construction-Sign.png)
-
 # Archivage des journaux Netfilter
 
 ## Description: 
@@ -78,16 +76,66 @@ Le second objectif est de s'assurer que le script d'archivage est présent :
 >Chaque client dispose de son répertoire propre créé à partir de son nom ("hostname"), à l'intérieur du dépôt.
 
 ## Installation:  
-Installation is the next section in an effective README. Tell other users how to install your project locally. Optionally, include a gif to make the process even more clear for other people.
-
+1. ***Fichier zip***  
+Télécharger le projet sous la forme d'une archive .zip en cliquant [ici](https://github.com/Yanick-M/OpenClassroomsProjet6/archive/main.zip).  
+Décompresser l'archive dans votre espace de travail.
+2. ***Clonage du projet***  
+La deuxième option d'installation est de cloner le projet grâce à "git".  
+Placer vous dans votre espace de travail au préalable ou dans le répertoire temporaire.  
+```cd /tmp/
+git clone https://github.com/Yanick-M/OpenClassroomsProjet6.git  
+```
+3. ***Déclaration de la librairie***  
+Il n'est pas nécessaire d'effectuer des modifications au niveau du système pour que python puisse accéder aux différents modules (que ce soit la variable "PYTHONPATH" ou dans "sys.path").  
+Le script principal dispose d'une action qui insére le chemin complet dans "sys.path" si la librairie n'est pas accessible :  
+```  
+import os, argparse, getpass, subprocess  
+try:  
+    from libnetfilterlocal import persistent, creation_journaux, transfert_journaux  
+except:  
+    import sys  
+    chemin = os.getcwd() + "/"  
+    sys.path.insert(0, chemin)  
+    from libnetfilterlocal import persistent  
+```  
 ## Utilisation:  
-The next section is usage, in which you instruct other people on how to use your project after they’ve installed it. This would also be a good place to include screenshots of your project in action.
+1. ***Informations importantes***  
+Pour que cet outil fonctionne correctement, il ne faut pas modifier la structure des répertoires que ce soit en les déplaçant ou en les renommant.  
+Il ne faut pas non plus renommé ou changer les extensions des différents fichiers.  
+Si vous décidez d'effectuer des modifications, il faudra modifier le code en conséquence.
+2. ***Effectuer vos réglages***  
+Le but de cet outil étant d'archiver le trafic spécifique d'une machine en fonction des services qu'elle héberge, il est donc obligatoire de modifier le fichier [regles.txt](https://github.com/Yanick-M/OpenClassroomsProjet6/tree/main/libnetfilterlocal/doc/regles.txt) dans le dossier "libnetfilterlocal/doc/". Le lien montre des exemples de règles pouvant être configurées. Pour pouvoir fonctionner correctement, une seule expression doit contenir des guillemets doubles ("double quote").  
+Il est également possible de modifier le [template](https://github.com/Yanick-M/OpenClassroomsProjet6/blob/main/libnetfilterlocal/doc/script_defaut.txt) du démon mais il ne faut pas enlever ou modifier les lignes "# Commentaires" et "# Restauration iptables".  
+Le [template]() de rotation des logs peut aussi être affiner. Par contre, l'archivage se fait uniquement sur l'ensemble des fichiers "iptables*.1" dans le répertoire "/var/log/netfilter/".
+3. ***L'outil***  
+Affichage de l'aide :  
+```  
+./Netfilter_local.py -h  
+```  
+Lancement de l'outil par défaut pour visualiser le menu ou "annuler des modifications" :  
+```  
+sudo ./Netfilter_local.py  
+```  
+Exemple de lancement de l'outil pour exécuter des actions de déploiement :  
+```  
+sudo ./Netfilter_local.py --user yanick --host ServerCentral  
+sudo ./Netfilter_local.py -U root -H 10.0.0.1  
+```  
+Apparence du menu :
 
-## Credits:  
-Include a section for credits in order to highlight and link to the authors of your project.
+![alt text](https://github.com/Yanick-M/OpenClassroomsProjet6/blob/main/menu.png)
+
+## Prérequis:  
+* Le package "iptables" doit être installé et configuré sur le client,  
+* Le package "rsyslogd" doit être installé sur le client,  
+* Le package "tar" doit être installé sur le client,  
+* Les packages "openssh-client" et "sshpass" doivent être installés sur le client,  
+* Le package "openssh-server" doit être installé et configuré sur la machine dédiée,  
+* Le package "rsync" doit être installé sur le client et la machine dédiée.
 
 ## Version:  
 1.0 (finale)
 
 ## License:  
-Finally, include a section for the license of your project. For more information on choosing a license, check out GitHub’s licensing guide!
+#### Copyright (c) 2020 [Yanick-M]
+#### GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
