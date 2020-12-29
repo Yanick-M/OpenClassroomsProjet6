@@ -106,7 +106,7 @@ Si vous décidez d'effectuer des modifications, il faudra modifier le code en co
 2. ***Effectuer vos réglages:***  
 Le but de cet outil étant d'archiver le trafic spécifique d'une machine en fonction des services qu'elle héberge, il est donc obligatoire de modifier le fichier [regles.txt](https://github.com/Yanick-M/OpenClassroomsProjet6/tree/main/libnetfilterlocal/doc/regles.txt) dans le dossier "libnetfilterlocal/doc/". Le lien montre des exemples de règles pouvant être configurées. Pour pouvoir fonctionner correctement, une seule expression doit contenir des guillemets doubles ("double quote").  
 Il est également possible de modifier le [template](https://github.com/Yanick-M/OpenClassroomsProjet6/blob/main/libnetfilterlocal/doc/script_defaut.txt) du démon mais il ne faut pas enlever ou modifier les lignes "# Commentaires" et "# Restauration iptables".  
-Le [template]() de rotation des logs peut aussi être affiner. Par contre, l'archivage se fait uniquement sur l'ensemble des fichiers "iptables*.1" dans le répertoire "/var/log/netfilter/".
+Le [template](https://github.com/Yanick-M/OpenClassroomsProjet6/blob/main/libnetfilterlocal/doc/rotation.txt) de rotation des logs peut aussi être affiner. Par contre, l'archivage se fait uniquement sur l'ensemble des fichiers "iptables*.1" dans le répertoire "/var/log/netfilter/".
 3. ***L'outil:***  
 
 Affichage de l'aide :  
