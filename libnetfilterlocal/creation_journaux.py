@@ -3,13 +3,17 @@
 
 import os, shutil
 
-# Déclaration du fichier regles.txt et de son répertoire doc/
+# Déclaration des fichier regles.txt, logrotate.txt et de leur répertoire doc/
 CHEMIN_DOCUMENTS = os.path.join(os.path.dirname(__file__), 'doc/')
 NOM_REGLES = "regles.txt"
-# Déclaration des répertoire source et de destination ainsi qu'n nom pour le fichier de configuration rsyslog
-#CHEMIN_SOURCE = os.getcwd() + "/"
+NOM_ROTATION = "rotation.txt"
+# Déclaration des répertoire source et de destination ainsi qu'un nom pour le fichier de configuration rsyslog
 CHEMIN_DESTINATION = "/etc/rsyslog.d/"
 NOM_LOG = "10-iptables.conf"
+CHEMIN_LOG = "/var/log/netfilter/"
+NOM_LOGROTATE = "netfilter.conf"
+CHEMIN_LOGROTATE = "/etc/logrotate.d/"
+
 
 # Déclaration de classes pour gérer les exceptions
 class Erreur(Exception):
@@ -64,6 +68,16 @@ def annulation_modification():
         print("\033[32m-----le fichier a déjà été supprimé-----\033[0m")
     except EchecLecture as exc:
         raise Erreur.privileges(EchecLecture)
+
+def recherche_repertoire():
+
+    try:
+        os.makedirs(CHEMIN_LOG)
+        shutil.chown(CHEMIN_LOG, user="root", group="syslog")
+    except FileExistsError:
+        shutil.chown(CHEMIN_LOG, user="root", group="syslog")
+    except PermissionError:
+        raise EchecEcriture
 
 def lecture_fichier(chemin, nom):
 
@@ -150,7 +164,7 @@ def ecrire_fichier(chemin, nom, donnees):
     except IOError:
         raise EchecEcriture
 
-def creation_fichier_conf(liste_conf):
+def creation_fichier_rsyslog(liste_conf):
 
     # Comparaison des règles actives aux règles souhaitées pour extraire la liste des préfixes générés par Netfilter
     # et qui ne sont pas encore isolés par rsyslog
@@ -163,7 +177,7 @@ def creation_fichier_conf(liste_conf):
     # Génération et ajout des règles correspondant aux préfixes manquants dans le fichier de configuration
     liste_finale = creation_regles_manquantes(liste_conf, liste_a_definir)
 
-    # Création du fichier conf dans le répertoire courant
+    # Création du fichier conf dans le répertoire init.d
     try:
         ecrire_fichier(CHEMIN_DESTINATION, NOM_LOG, liste_finale)
     except EchecEcriture:
@@ -173,30 +187,68 @@ def creation_fichier_conf(liste_conf):
     print("\n\033[34mJe redémarre le service rsyslog...\033[0m")
     os.system ('service rsyslog restart')
 
+def creation_fichier_logrotate():
+    
+    # Essai de récupération de la configuration de la rotation des logs Netfilter
+    try:
+        rotation = lecture_fichier(CHEMIN_DOCUMENTS, NOM_ROTATION)
+    except FichierNonTrouve as exc:
+        raise Erreur.fichier_absent(FichierNonTrouve, CHEMIN_DOCUMENTS, NOM_ROTATION)
+    except EchecLecture as exc:
+        raise Erreur.erreurfatale(EchecLecture)
+
+    # Essai de création du fichier à partir de la liste obtenue
+    try:
+        ecrire_fichier(CHEMIN_LOGROTATE, NOM_LOGROTATE, rotation)
+    except EchecEcriture:
+        raise Erreur.ecriture_impossible(EchecEcriture, CHEMIN_DESTINATION, NOM_LOG)
+
+    # Redémarrage du service logrotate pour prise en compte des modifications
+    print("\n\033[34mJe redémarre le service logrotate...\033[0m")
+    os.system ('service logrotate restart')
+
 def main():
     
     # Créer des journaux regroupant chaque événement que Netfilter aura commenté en fonction de son préfixe
     # L'objectif de ce module est de s'assurer qu'un fichier conf existe dans le répertoire rsyslog.d et qu'il contient
     # des règles correspondantes aux préfixes ajoutés par Netfilter
     
+    print("\n\033[36mJe cherche le répertoire de stockage des logs...\033[0m")
+    try:
+        os.makedirs(CHEMIN_LOG)
+        os.system("chown root:syslog {0} && chmod 775 {0}".format(CHEMIN_LOG))
+    except FileExistsError as exc:
+        pass
+    except IOError as exc:
+        raise Erreur.privileges(EchecEcriture)
+
     print("\n\033[36mJe cherche le fichier de config rsyslog...\033[0m")
-    # Essai de lecture du fichier 10-iptables.conf
-    try :
+    # Essai de lecture du fichier 10-iptables.conf dans /etc/rsyslog.d/
+    try:
         liste_conf = lecture_fichier(CHEMIN_DESTINATION, NOM_LOG)
         print("\n\033[36mJe lance la vérification de la présence des règles de commentaires...\033[0m")
         # Si il existe, comparaison des règles présentes avec les règles à appliquer
         try:
             recherche_regles_conf(liste_conf)
             print("\n\033[36mJe lance la création du fichier...\033[0m")
-            creation_fichier_conf(liste_conf)
+            creation_fichier_rsyslog(liste_conf)
         # Si les règles sont différentes, recréation du fichier 10-iptables.conf
-        except RechercheVide:
+        except RechercheVide as exc:
             print("\033[32m-----les informations sont identiques-----\033[0m")
     # Si il n'exite pas, création du fichier 10-iptables.conf à partir d'une liste vide
     except FichierNonTrouve:
         print("\n\033[36mJe lance la création du fichier...\033[0m")
         liste_conf = []
-        creation_fichier_conf(liste_conf)
+        creation_fichier_rsyslog(liste_conf)
+    except EchecLecture as esc:
+        raise Erreur.privileges
+
+    print("\n\033[36mJe cherche le fichier de config logrotate...\033[0m")
+    # Essai de lecture du fichier netfilter.conf dans /etc/logrotate.d/
+    try:
+        lecture_fichier(CHEMIN_LOGROTATE, NOM_LOGROTATE)
+    except FichierNonTrouve as exc:
+        creation_fichier_logrotate()
     except EchecLecture as esc:
         raise Erreur.privileges
 
@@ -214,14 +266,14 @@ if __name__ == '__main__':
     # Boucle de choix:
     while choix != "q":
         print(
-            "\n \033[36m1\033[0m : Rendre le pare-feu persistent,\n",
+            "\n \033[36m1\033[0m : Rediriger les logs netfilter,\n",
             "\033[36m2\033[0m : Annuler les modifications,\n",
             "\033[36mQ\033[0m : Quitter,"
         )   
         choix = input("Quel est votre choix ? ")
         choix = choix.lower()
         if choix == "1":
-            print("\nJe rends le pare-feu persistent.\n")
+            print("\nJe redirige les logs.\n")
             main()
         elif choix == "2":
             print("\nJ'annule les modifications.\n")

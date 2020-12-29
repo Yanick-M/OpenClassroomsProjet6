@@ -11,7 +11,6 @@ NOM_SCRIPT = "archivage_logs_netfilter.sh"
 CHEMIN_CLE = "/root/.ssh/"
 NOM_CLE = "id_rsa_archivage"
 NOM_CLE2 = "id_rsa_archivage.pub"
-NOM_CLE3 = "authorized_keys"
 CHEMIN_DOCUMENTS = os.path.join(os.path.dirname(__file__), 'doc/')
 NOM_DOCUMENT = "script_archivage.txt"
 
@@ -138,7 +137,8 @@ def creation_tache_crontab():
     
     print("-----planification d'une tâche-----")
     # Ajout de la tâche à l'aide d'une commande bash dans le fichier root du répertoire crontabs
-    os.system("echo '0 1 * * *  \"{}./{}\"' >> \"{}{}\"".format(CHEMIN_SCRIPT, NOM_SCRIPT, CHEMIN_TACHE, NOM_TACHE))
+    # Elle est planifiée après les tâches de rotation des logs entre 06H25 et 07H00 environ
+    os.system("echo '0 7 * * *  \"{}./{}\"' >> \"{}{}\"".format(CHEMIN_SCRIPT, NOM_SCRIPT, CHEMIN_TACHE, NOM_TACHE))
     # Activation de la tâche à l'aide d'une commande bash (le fichier sera ainsi lisible et modifiable par root ou le groupe crontab uniquement)
     os.system("crontab \"{}{}\"".format(CHEMIN_TACHE, NOM_TACHE))
 
@@ -243,21 +243,12 @@ def cle_ssh(user, host, password):
             raise Erreur.privileges(IOError)
 
         # Transfert de la clé vers le serveur central
-        result = os.system("sshpass -p \"{}\" ssh-copy-id -i \"{}{}\" {}@{} > /dev/null 2>&1".format(password, CHEMIN_CLE, NOM_CLE, user, host))
+        result = os.system("sshpass -p \"{}\" ssh-copy-id -o StrictHostKeyChecking=no -i \"{}{}\" {}@{} > /dev/null 2>&1".format(password, CHEMIN_CLE, NOM_CLE, user, host))
         # Si la connexion échoue, l'utilisateur est informé
         if result == 256:
             print("\033[31mLa copie de l'ID ssh vers {} n'a pas fonctionné, problème à étudier ! Le nom du server ou de la clé est peut-être incorrecte\033[0m".format(host))
         elif result == 1536:
             print("\033[31mLe nom d'utilisateur du serveur {} ou son mot de passe n'est pas correct !\033[0m".format(host))
-        
-        # Essai de modification des droits sur le fichier contenant les machines autorisées via ssh
-        try:
-            mise_en_place_fichier(CHEMIN_CLE, NOM_CLE3, droits_ssh)
-        # Si le fichier n'a pas été trouvé car le transfert de la clé à échouer, le script continue
-        except FichierNonTrouve as exc:
-            pass
-        except EchecEcriture as exc:
-            raise Erreur.privileges(IOError)
 
     # Si la fonction est exécutée sans privilèges, l'utilisateur est informée et l'exécution du script se termine
     except EchecLecture as exc:

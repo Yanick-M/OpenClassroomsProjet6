@@ -258,11 +258,11 @@ def creation_script():
     except RechercheVide as exc:
         raise Erreur.erreurfatale(RechercheVide)
     # Ajout de la commande de restauration dans la liste représentant le script
-    script_definitif = ajout_donnees_manquantes(script_temporaire, positionB, commande)
+    script_temporaire.insert(positionB, commande)
 
     # Création d'un fichier contenant le script à partir de la liste "défaut" dans le répertoire courant
     try:
-        ecriture_fichier(CHEMIN_DESTINATION, NOM_SCRIPT, script_definitif)
+        ecriture_fichier(CHEMIN_DESTINATION, NOM_SCRIPT, script_temporaire)
     except EchecEcriture as exc:
         raise Erreur.ecriture_impossible(EchecEcriture,CHEMIN_DESTINATION, NOM_SCRIPT)
 
@@ -450,7 +450,7 @@ def daemon(user, host, password):
                     except EchecService as exc:
                         print("Echec de démarrage du daemon")
                 except RechercheVide as exc:
-                    pass
+                    mise_en_place_script(CHEMIN_DESTINATION, NOM_SCRIPT)
             except FichierNonTrouve as exc:
                 raise Erreur.erreurfatale(FichierNonTrouve)
             except EchecLecture as exc:

@@ -65,7 +65,7 @@ def main():
     verif_privileges()
     
     # Vérification si les paquets utilisés dans le script sont installés, l'utilisateur est informé si ce n'est pas le cas
-    verif_paquet("iptables", "rsyslogd", "ssh", "rsync", "tar")
+    verif_paquet("iptables", "rsyslogd", "ssh", "rsync", "tar", "logrotate", "sshpass")
 
     # Affichage d'un logo au démarrage du script
     logo_acceuil()

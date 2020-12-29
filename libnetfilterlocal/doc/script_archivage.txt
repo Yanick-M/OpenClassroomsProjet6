@@ -11,7 +11,7 @@ if [ $jour = "01"] ; then
 fi
 
 echo "Compression des journaux"
-sudo tar -zcvf "/var/log/archive_$hote-$date.tar.gz" /var/log/netfilter/iptables*.log  
+sudo tar -zcvf "/var/log/netfilter/archive_$hote-$date.tar.gz" /var/log/netfilter/iptables*.1
 
 echo "Transfert des archives"
-sudo rsync --remove-source-files -av -e 'ssh -i /root/.ssh/id_rsa_archivage' /var/log/archive_$hote_$date.tar.gz $user@$host:/Depot_netfilter/$hote/$mois/
+sudo rsync --remove-source-files -av -e 'ssh -i /root/.ssh/id_rsa_archivage' /var/log/netfilter/archive_$hote_$date.tar.gz $user@$host:/Depot_netfilter/$hote/$mois/
