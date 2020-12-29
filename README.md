@@ -65,8 +65,8 @@ Le second objectif est de s'assurer que le script d'archivage est présent :
 >Le nom de l'archive est de la forme "archive_$hostname-$date.tar.gz".  
 >Le script déplace l'archive vers la machine dédiée dans un réperoire propre et un sous-répertoire composé du mois et de l'année en cours (exemple : "décembre2020/").  
 >Le fichier contenant le template se trouve dans "doc/script_archivage.txt".
-   #### - La communication avec la machine dédiée au stockage des archives  
-    Les modules "persistent" et "transfert_journaux" utilisent le protocole SSH pour communiquer avec la machine dédiée à l'archivage des logs et des fichiers nécessaires au démon. Il est donc nécessaire de s'assurer que les clés id sont présentes :
+   #### - La communication avec la machine dédiée au stockage des archives
+Les modules "persistent" et "transfert_journaux" utilisent le protocole SSH pour communiquer avec la machine dédiée à l'archivage des logs et des fichiers nécessaires au démon. Il est donc nécessaire de s'assurer que les clés id sont présentes :
    * Vérifier si les fichiers sont présents,  
    * Générer les fichiers, transférer la clé publique et définir la machine dédiée comme hôte connu le cas échéant.
 >Les clés utilisent un chiffrement RSA de 4096 bits.  
@@ -111,17 +111,20 @@ Le [template]() de rotation des logs peut aussi être affiner. Par contre, l'arc
 Affichage de l'aide :  
 ```  
 ./Netfilter_local.py -h  
-```  
-    Lancement de l'outil par défaut pour visualiser le menu ou "annuler des modifications" :  
+```
+
+Lancement de l'outil par défaut pour visualiser le menu ou "annuler des modifications" :  
 ```  
 sudo ./Netfilter_local.py  
-```  
-    Exemple de lancement de l'outil pour exécuter des actions de déploiement :  
+```
+
+Exemple de lancement de l'outil pour exécuter des actions de déploiement :  
 ```  
 sudo ./Netfilter_local.py --user yanick --host ServerCentral  
 sudo ./Netfilter_local.py -U root -H 10.0.0.1  
-```  
-    Apparence du menu :
+```
+
+Apparence du menu :
 
 ![alt text](https://github.com/Yanick-M/OpenClassroomsProjet6/blob/main/menu.png)
 
