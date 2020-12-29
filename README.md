@@ -5,7 +5,7 @@ Ce projet, sous python 3.7, a pour but d’archiver les journaux issus du pare-f
 
 ## Fonctionnement: 
    #### - Rendre les règles Netfilter persistantes (module persistent.py)
-1. ***Sauvegarder les règles via IPtables***  
+1. ***Sauvegarder les règles via IPtables:***  
 Le premier objectif de ce module est de s’assurer que les règles du pare-feu sont sauvegardées :  
       * Vérifier la présence du fichier de sauvegarde,  
       * Si ce n’est pas le cas, télécharger une copie du fichier depuis la machine dédiée,  
@@ -13,7 +13,7 @@ Le premier objectif de ce module est de s’assurer que les règles du pare-feu 
 >La sauvegarde est effectuée avec la commande "iptables-save".  
 >Elle est stockée en local dans le répertoire "/etc/init.d/".  
 >Son nom est la combinaison du préfixe "sauvegarde_iptables_" et du nom de la machine ("hostname").
-2. ***Mettre en place un daemon "Netfilter"***  
+2. ***Mettre en place un daemon "Netfilter":***  
 Le second objectif est de s’assurer qu’un démon s’exécute au démarrage et qu’il contient la liste des règles de logs à mettre en place :
       * Vérifier la présence du script ou téléchargement depuis la machine dédiée si besoin,
       * Comparer les règles existantes dans le script avec celles à mettre en place ; Mise à jour du script en cas de différence,
@@ -27,7 +27,7 @@ Le second objectif est de s’assurer qu’un démon s’exécute au démarrage 
 >Le fichier contenant le template du démon se trouve dans "doc/script_defaut.txt".  
 >Le fichier contenant la liste des règles à définir se trouve dans "doc/regles.txt".
    #### - Extraire les logs Netfilter et mettre en place une rotation des fichiers (module creation_journaux.py)
-1. ***Configurer rsyslog***  
+1. ***Configurer rsyslog:***  
 Le premier objectif de ce module est de s’assurer qu’un fichier conf pour rsyslog existe pour les logs de Netfilter :
       * Vérifier si le fichier existe,
       * Vérifier si les règles à définir sont déjà configurées,
@@ -38,7 +38,7 @@ Le premier objectif de ce module est de s’assurer qu’un fichier conf pour rs
 >Chaque règle de logs aura son propre fichier dont le nom est le préfixe défini.  
 >Le service "rsyslog" est redémarré en cas de création ou de modification du fichier conf.  
 >Le fichier contenant la liste des règles à définir se trouve dans "doc/regles.txt".
-2. ***Configurer logrotate***  
+2. ***Configurer logrotate:***  
 Le second objectif du module est de s’assurer qu’un fichier conf pour logrotate existe pour les logs de Netfilter :  
       * Vérifier si le fichier existe,  
       * Créer le fichier à partir d'un template le cas échéant.
@@ -46,7 +46,7 @@ Le second objectif du module est de s’assurer qu’un fichier conf pour logrot
 >Il se nomme "netfilter.conf".  
 >Le fichier contenant le template se trouve dans "doc/rotation.txt".
    #### - Planifier et mettre en place un script d’archivage (module transfert_journaux.py)
-1. ***Configurer cron***  
+1. ***Configurer cron:***  
 Le premier objectif de ce module est de s'assurer que l'exécution du script est programmé à 07H00 tous les jours :
       * Vérifier si le fichier crontab de root existe,  
       * Vérifier si le nom du script d'archivage est présent dans le fichier,  
@@ -54,7 +54,7 @@ Le premier objectif de ce module est de s'assurer que l'exécution du script est
 >Le fichier est stocké dans le répertoire "/var/spool/cron/crontabs/".  
 >Le fichier se nomme "root".  
 >La tâche exécute le fichier "archivage_logs_netfilter.sh".
-2. ***Générer le script d'archivage***  
+2. ***Générer le script d'archivage:***  
 Le second objectif est de s'assurer que le script d'archivage est présent :
       * Vérifier si le fichier existe,  
       * Vérifier si les informations de connexion à la machine dédiée sont correctes,  
@@ -66,7 +66,7 @@ Le second objectif est de s'assurer que le script d'archivage est présent :
 >Le script déplace l'archive vers la machine dédiée dans un réperoire propre et un sous-répertoire composé du mois et de l'année en cours (exemple : "décembre2020/").  
 >Le fichier contenant le template se trouve dans "doc/script_archivage.txt".
    #### - La communication avec la machine dédiée au stockage des archives  
-   Les modules "persistent" et "transfert_journaux" utilisent le protocole SSH pour communiquer avec la machine dédiée à l'archivage des logs et des fichiers nécessaires au démon. Il est donc nécessaire de s'assurer que les clés id sont présentes :
+    Les modules "persistent" et "transfert_journaux" utilisent le protocole SSH pour communiquer avec la machine dédiée à l'archivage des logs et des fichiers nécessaires au démon. Il est donc nécessaire de s'assurer que les clés id sont présentes :
    * Vérifier si les fichiers sont présents,  
    * Générer les fichiers, transférer la clé publique et définir la machine dédiée comme hôte connu le cas échéant.
 >Les clés utilisent un chiffrement RSA de 4096 bits.  
@@ -76,16 +76,16 @@ Le second objectif est de s'assurer que le script d'archivage est présent :
 >Chaque client dispose de son répertoire propre créé à partir de son nom ("hostname"), à l'intérieur du dépôt.
 
 ## Installation:  
-1. ***Fichier zip***  
+1. ***Fichier zip:***  
 Télécharger le projet sous la forme d'une archive .zip en cliquant [ici](https://github.com/Yanick-M/OpenClassroomsProjet6/archive/main.zip).  
 Décompresser l'archive dans votre espace de travail.
-2. ***Clonage du projet***  
+2. ***Clonage du projet:***  
 La deuxième option d'installation est de cloner le projet grâce à "git".  
 Placer vous dans votre espace de travail au préalable ou dans le répertoire temporaire.  
 ```cd /tmp/
 git clone https://github.com/Yanick-M/OpenClassroomsProjet6.git  
 ```
-3. ***Déclaration de la librairie***  
+3. ***Déclaration de la librairie:***  
 Il n'est pas nécessaire d'effectuer des modifications au niveau du système pour que python puisse accéder aux différents modules (que ce soit la variable "PYTHONPATH" ou dans "sys.path").  
 Le script principal dispose d'une action qui insére le chemin complet dans "sys.path" si la librairie n'est pas accessible :  
 ```  
@@ -99,29 +99,29 @@ except:
     from libnetfilterlocal import persistent  
 ```  
 ## Utilisation:  
-1. ***Informations importantes***  
+1. ***Informations importantes:***  
 Pour que cet outil fonctionne correctement, il ne faut pas modifier la structure des répertoires que ce soit en les déplaçant ou en les renommant.  
 Il ne faut pas non plus renommé ou changer les extensions des différents fichiers.  
 Si vous décidez d'effectuer des modifications, il faudra modifier le code en conséquence.
-2. ***Effectuer vos réglages***  
+2. ***Effectuer vos réglages:***  
 Le but de cet outil étant d'archiver le trafic spécifique d'une machine en fonction des services qu'elle héberge, il est donc obligatoire de modifier le fichier [regles.txt](https://github.com/Yanick-M/OpenClassroomsProjet6/tree/main/libnetfilterlocal/doc/regles.txt) dans le dossier "libnetfilterlocal/doc/". Le lien montre des exemples de règles pouvant être configurées. Pour pouvoir fonctionner correctement, une seule expression doit contenir des guillemets doubles ("double quote").  
 Il est également possible de modifier le [template](https://github.com/Yanick-M/OpenClassroomsProjet6/blob/main/libnetfilterlocal/doc/script_defaut.txt) du démon mais il ne faut pas enlever ou modifier les lignes "# Commentaires" et "# Restauration iptables".  
 Le [template]() de rotation des logs peut aussi être affiner. Par contre, l'archivage se fait uniquement sur l'ensemble des fichiers "iptables*.1" dans le répertoire "/var/log/netfilter/".
-3. ***L'outil***  
+3. ***L'outil:***  
 Affichage de l'aide :  
 ```  
 ./Netfilter_local.py -h  
 ```  
-Lancement de l'outil par défaut pour visualiser le menu ou "annuler des modifications" :  
+    Lancement de l'outil par défaut pour visualiser le menu ou "annuler des modifications" :  
 ```  
 sudo ./Netfilter_local.py  
 ```  
-Exemple de lancement de l'outil pour exécuter des actions de déploiement :  
+    Exemple de lancement de l'outil pour exécuter des actions de déploiement :  
 ```  
 sudo ./Netfilter_local.py --user yanick --host ServerCentral  
 sudo ./Netfilter_local.py -U root -H 10.0.0.1  
 ```  
-Apparence du menu :
+    Apparence du menu :
 
 ![alt text](https://github.com/Yanick-M/OpenClassroomsProjet6/blob/main/menu.png)
 
