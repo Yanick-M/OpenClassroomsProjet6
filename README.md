@@ -1,7 +1,7 @@
 # Archivage des journaux Netfilter
 
 ## Description: 
-Ce projet, sous python 3.7, a pour but d’archiver les journaux issus du pare-feu Netfilter d’un serveur fonctionnant sur une distribution Debian-based. L’archivage est réalisé quotidiennement en compressant les différents fichiers contenant les logs de la veille et en les transférant vers une machine dédiée.
+Ce projet, sous python 3.7, a pour but d’archiver les journaux, issus du pare-feu Netfilter, d’un serveur fonctionnant sur une distribution Debian-based. L’archivage est réalisé quotidiennement en compressant les différents fichiers contenant les logs de la veille et en les transférant vers une machine dédiée.
 
 ## Fonctionnement: 
    #### - Rendre les règles Netfilter persistantes (module persistent.py)
