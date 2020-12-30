@@ -1,7 +1,19 @@
 # Archivage des journaux Netfilter
 
 ## Description: 
-Ce projet, sous python 3.7, a pour but d’archiver les journaux, issus du pare-feu Netfilter, d’un serveur fonctionnant sur une distribution Debian-based. L’archivage est réalisé quotidiennement en compressant les différents fichiers contenant les logs de la veille et en les transférant vers une machine dédiée.
+Ce projet, sous python 3.7, a pour but d’archiver les journaux issus du pare-feu Netfilter d’un serveur fonctionnant sur une distribution Debian-based. L’archivage est réalisé quotidiennement en compressant les différents fichiers contenant les logs de la veille et en les transférant vers une machine dédiée.
+
+## Table des matières:  
+  - [Fonctionnement:](#fonctionnement)
+      - [- Rendre les règles Netfilter persistantes (module persistent.py)](#--rendre-les-règles-netfilter-persistantes-module-persistentpy)
+      - [- Extraire les logs Netfilter et mettre en place une rotation des fichiers (module creation_journaux.py)](#--extraire-les-logs-netfilter-et-mettre-en-place-une-rotation-des-fichiers-module-creation_journauxpy)
+      - [- Planifier et mettre en place un script d’archivage (module transfert_journaux.py)](#--planifier-et-mettre-en-place-un-script-darchivage-module-transfert_journauxpy)
+      - [- La communication avec la machine dédiée au stockage des archives](#--la-communication-avec-la-machine-dédiée-au-stockage-des-archives)
+  - [Installation](#installation)
+  - [Utilisation](#utilisation)
+  - [Prérequis](#prérequis)
+  - [Version](#version)
+  - [License](#license)
 
 ## Fonctionnement: 
    #### - Rendre les règles Netfilter persistantes (module persistent.py)
@@ -106,7 +118,7 @@ Si vous décidez d'effectuer des modifications, il faudra modifier le code en co
 2. ***Effectuer vos réglages:***  
 Le but de cet outil étant d'archiver le trafic spécifique d'une machine en fonction des services qu'elle héberge, il est donc obligatoire de modifier le fichier [regles.txt](https://github.com/Yanick-M/OpenClassroomsProjet6/tree/main/libnetfilterlocal/doc/regles.txt) dans le dossier "libnetfilterlocal/doc/". Le lien montre des exemples de règles pouvant être configurées. Pour pouvoir fonctionner correctement, une seule expression doit contenir des guillemets doubles ("double quote").  
 Il est également possible de modifier le [template](https://github.com/Yanick-M/OpenClassroomsProjet6/blob/main/libnetfilterlocal/doc/script_defaut.txt) du démon mais il ne faut pas enlever ou modifier les lignes "# Commentaires" et "# Restauration iptables".  
-Le [template](https://github.com/Yanick-M/OpenClassroomsProjet6/blob/main/libnetfilterlocal/doc/rotation.txt) de rotation des logs peut aussi être affiner. Par contre, l'archivage se fait uniquement sur l'ensemble des fichiers "iptables*.1" dans le répertoire "/var/log/netfilter/".
+Le [template]() de rotation des logs peut aussi être affiner. Par contre, l'archivage se fait uniquement sur l'ensemble des fichiers "iptables*.1" dans le répertoire "/var/log/netfilter/".
 3. ***L'outil:***  
 
 Affichage de l'aide :  
