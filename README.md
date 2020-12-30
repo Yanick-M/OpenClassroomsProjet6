@@ -142,6 +142,8 @@ Apparence du menu :
 ![alt text](https://github.com/Yanick-M/OpenClassroomsProjet6/blob/main/menu.png)
 
 ## Prérequis:  
+* Créer le répertoire "/Depot_netfilter/" à la racine de la machine dédiée,
+* Modifier le propriétaire de ce répertoire pour l'utilisateur servant à la connexion ssh,
 * Le package "iptables" doit être installé et configuré sur le client,  
 * Le package "rsyslogd" doit être installé sur le client,  
 * Le package "tar" doit être installé sur le client,  
