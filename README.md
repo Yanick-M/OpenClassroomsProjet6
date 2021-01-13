@@ -3,6 +3,18 @@
 ## Description: 
 Ce projet, sous python 3.7, a pour but d’archiver les journaux issus du pare-feu Netfilter d’un serveur fonctionnant sur une distribution Debian-based. L’archivage est réalisé quotidiennement en compressant les différents fichiers contenant les logs de la veille et en les transférant vers une machine dédiée.
 
+## Table des matières:  
+  - [Fonctionnement:](#fonctionnement)
+      - [- Rendre les règles Netfilter persistantes (module persistent.py)](#--rendre-les-règles-netfilter-persistantes-module-persistentpy)
+      - [- Extraire les logs Netfilter et mettre en place une rotation des fichiers (module creation_journaux.py)](#--extraire-les-logs-netfilter-et-mettre-en-place-une-rotation-des-fichiers-module-creation_journauxpy)
+      - [- Planifier et mettre en place un script d’archivage (module transfert_journaux.py)](#--planifier-et-mettre-en-place-un-script-darchivage-module-transfert_journauxpy)
+      - [- La communication avec la machine dédiée au stockage des archives](#--la-communication-avec-la-machine-dédiée-au-stockage-des-archives)
+  - [Installation](#installation)
+  - [Utilisation](#utilisation)
+  - [Prérequis](#prérequis)
+  - [Version](#version)
+  - [License](#license)
+
 ## Fonctionnement: 
    #### - Rendre les règles Netfilter persistantes (module persistent.py)
 1. ***Sauvegarder les règles via IPtables:***  
@@ -130,6 +142,8 @@ Apparence du menu :
 ![alt text](https://github.com/Yanick-M/OpenClassroomsProjet6/blob/main/menu.png)
 
 ## Prérequis:  
+* Le répertoire "/Depot_netfilter/" doit être créé à la racine de la machine dédiée,
+* Le propriétaire de ce répertoire doit être modifié pour l'utilisateur servant à la connexion ssh,
 * Le package "iptables" doit être installé et configuré sur le client,  
 * Le package "rsyslogd" doit être installé sur le client,  
 * Le package "tar" doit être installé sur le client,  
