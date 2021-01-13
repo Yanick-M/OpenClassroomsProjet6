@@ -56,16 +56,28 @@ def verif_privileges():
 
 def annulation_modification():
 
-    # En cas d'erreur en cours d'exécution ou à la demande de l'utilisateur, suppression du fichier créé
+    # En cas d'erreur en cours d'exécution ou à la demande de l'utilisateur, suppression des fichiers créés
     try:
         lecture_fichier(CHEMIN_DESTINATION, NOM_LOG)
         try:
             os.remove(CHEMIN_DESTINATION + NOM_LOG)
-            print("\033[32m-----le fichier a été supprimé-----\033[0m")
+            print("\033[32m-----le fichier {} a été supprimé-----\033[0m".format(NOM_LOG))
         except IOError:
             raise Erreur.privileges(EchecLecture)
     except FichierNonTrouve as exc:
-        print("\033[32m-----le fichier a déjà été supprimé-----\033[0m")
+        print("\033[32m-----le fichier {} a déjà été supprimé-----\033[0m".format(NOM_LOG))
+    except EchecLecture as exc:
+        raise Erreur.privileges(EchecLecture)
+
+    try:
+        lecture_fichier(CHEMIN_LOGROTATE, NOM_LOGROTATE)
+        try:
+            os.remove(CHEMIN_LOGROTATE + NOM_LOGROTATE)
+            print("\033[32m-----le fichier {} a été supprimé-----\033[0m".format(NOM_LOGROTATE))
+        except IOError:
+            raise Erreur.privileges(EchecLecture)
+    except FichierNonTrouve as exc:
+        print("\033[32m-----le fichier {} a déjà été supprimé-----\033[0m".format(NOM_LOGROTATE))
     except EchecLecture as exc:
         raise Erreur.privileges(EchecLecture)
 

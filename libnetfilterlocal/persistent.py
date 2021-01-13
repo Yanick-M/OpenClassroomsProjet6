@@ -82,6 +82,9 @@ def annulation_modification():
     # En cas d'erreur en cours d'exécution ou à la demande de l'utilisateur, suppression des deux fichiers créés
     suppression_fichier(CHEMIN_DESTINATION, NOM_SCRIPT)
     suppression_fichier(CHEMIN_DESTINATION, NOM_IPTABLES)
+    os.system('systemctl daemon-reload')
+    os.system('systemctl stop {}service > /dev/null 2>&1'.format(NOM_SCRIPT[:-2]))
+    
 
 def lecture_fichier(chemin, nom):
 
@@ -274,7 +277,7 @@ def cle_ssh(user, host, password):
     droits_ssh = stat.S_IREAD|stat.S_IWRITE
 
     # Dans le cas où il manque le fichier .pub, tentative de suppression du fichier id_rsa_archivage au préalable
-    os.system("rm \"{0}{1}\" > /dev/null 2>&1 | ssh-keygen -b 4096 -m PEM -f \"{0}{1}\" -N \"\"".format(CHEMIN_CLE, NOM_CLE))
+    os.system("rm \"{0}{1}\" > /dev/null 2>&1 | ssh-keygen -b 4096 -m PEM -f \"{0}{1}\" -N \"\" > /dev/null 2>&1".format(CHEMIN_CLE, NOM_CLE))
     
     # Essai de modification des droits des fichiers générés que seul le propriétaire peut lire ou modifier
     try:
@@ -287,7 +290,7 @@ def cle_ssh(user, host, password):
         raise Erreur.privileges(IOError)
 
     # Transfert de la clé vers le serveur central
-    result = os.system("sshpass -p \"{}\" ssh-copy-id -i \"{}{}\" {}@{} > /dev/null 2>&1".format(password, CHEMIN_CLE, NOM_CLE, user, host))
+    result = os.system("sshpass -p \"{}\" ssh-copy-id -o StrictHostKeyChecking=no -i \"{}{}\" {}@{} > /dev/null 2>&1".format(password, CHEMIN_CLE, NOM_CLE2, user, host))
     # Si la connexion échoue, l'utilisateur est informé
     if result == 256:
         print("\033[31mLa copie de l'ID ssh vers {} n'a pas fonctionné, problème à étudier ! Le nom du server ou de la clé est peut-être incorrecte\033[0m".format(host))

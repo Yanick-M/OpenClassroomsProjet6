@@ -1,4 +1,6 @@
 /var/log/netfilter/* {
     daily
     rotate 2
+    missing ok
+    create 644 root root
 }
