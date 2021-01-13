@@ -326,9 +326,12 @@ def verification_ssh(user, host, password):
     ssh.load_system_host_keys()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     key = paramiko.RSAKey.from_private_key_file("{}{}".format(CHEMIN_CLE, NOM_CLE))
-    ssh.connect(host, username = user, pkey = key)
-    ssh.exec_command('mkdir -p {}'.format(CHEMIN_SERVER))
-    ssh.close()
+    try:
+        ssh.connect(host, username = user, pkey = key)
+        ssh.exec_command('mkdir -p {}'.format(CHEMIN_SERVER))
+        ssh.close()
+    except:
+        print("-----echec de la connexion ssh-----")
 
 def upload_fichier(user, host, password, chemin, nom):
     
@@ -338,9 +341,9 @@ def upload_fichier(user, host, password, chemin, nom):
     ssh.load_system_host_keys()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     key = paramiko.RSAKey.from_private_key_file("{}{}".format(CHEMIN_CLE, NOM_CLE))
-    ssh.connect(host, username = user, pkey = key)
 
     try:
+        ssh.connect(host, username = user, pkey = key)
         with SCPClient(ssh.get_transport()) as scp:
             scp.put('{}{}'.format(chemin, nom), '{}{}'.format(CHEMIN_SERVER, nom))
     except:
@@ -354,9 +357,9 @@ def download_fichier(user, host, password, chemin, nom):
     ssh.load_system_host_keys()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     key = paramiko.RSAKey.from_private_key_file("{}{}".format(CHEMIN_CLE, NOM_CLE))
-    ssh.connect(host, username = user, pkey = key)
 
     try:
+        ssh.connect(host, username = user, pkey = key)
         with SCPClient(ssh.get_transport()) as scp:
             scp.get('{}{}'.format(CHEMIN_SERVER, nom), '{}'.format(chemin))
     except:
